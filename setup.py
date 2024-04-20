@@ -10,8 +10,10 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('launch/' + package_name, ['move_to_gps_target.py']),
-        ('params/' + package_name, ['nav2_params.yaml']),
+        ('share/' + package_name+'/launch', ['launch/move_to_gps_target.py']),
+        ('share/' + package_name+'/params', ['params/nav2_params.yaml']),
+        ('share/' + package_name+'/maps', ['maps/empty_world.pgm']),
+        ('share/' + package_name+'/maps', ['maps/empty_world.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -22,6 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'regularly_clear_costmap_after_starting_nav2=move_to_gps_target.regularly_clear_costmap_after_starting_nav2_node:main'
         ],
     },
 )

@@ -48,6 +48,7 @@ def generate_launch_description():
     use_composition = LaunchConfiguration('use_composition')
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
+    map_yaml_file = LaunchConfiguration('map')
 
     # Launch configuration variables specific to simulation
     use_simulator = LaunchConfiguration('use_simulator')
@@ -86,6 +87,12 @@ def generate_launch_description():
         'namespace',
         default_value='',
         description='Top-level namespace')
+    
+    declare_map_yaml_cmd = DeclareLaunchArgument(
+        'map',
+        default_value=os.path.join(
+            move_to_gps_target_dir, 'maps', 'empty_world.yaml'),
+        description='Full path to map file to load')
 
     declare_use_namespace_cmd = DeclareLaunchArgument(
         'use_namespace',
@@ -258,7 +265,7 @@ def generate_launch_description():
     )
 
     clear_nav2_costmap_cmd=Node(
-            package='myTestPockage',
+            package='move_to_gps_target',
             executable='regularly_clear_costmap_after_starting_nav2',
             output='screen',
             # arguments=['time', '1.0']
@@ -268,7 +275,6 @@ def generate_launch_description():
             package='myTestPockage',
             executable='TF2ListenerExample',
             output='screen',
-            # arguments=['time', '1.0']
         )
 
 
@@ -286,14 +292,9 @@ def generate_launch_description():
     ld.add_action(declare_autostart_cmd)
     ld.add_action(declare_use_composition_cmd)
 
-    ld.add_action(declare_rviz_config_file_cmd)
     ld.add_action(declare_use_simulator_cmd)
     ld.add_action(declare_use_robot_state_pub_cmd)
-    ld.add_action(declare_use_rviz_cmd)
-    ld.add_action(declare_simulator_cmd)
-    ld.add_action(declare_world_cmd)
     ld.add_action(declare_robot_name_cmd)
-    ld.add_action(declare_robot_sdf_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
     # Add any conditioned actions
@@ -303,6 +304,6 @@ def generate_launch_description():
     ld.add_action(bringup_cmd)
     # ld.add_action(bringup_cmd_group)
     # ld.add_action(nav2_setup_cmd)
-    # ld.add_action(clear_nav2_costmap_cmd)
+    ld.add_action(clear_nav2_costmap_cmd)
     # ld.add_action(TF2ListenerExample_cmd)
     return ld
