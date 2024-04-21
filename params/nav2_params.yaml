@@ -179,19 +179,24 @@ controller_server:
       xy_goal_tolerance: 0.5  # 到达目标位置的容许误差范围，单位为米
       yaw_goal_tolerance: 0.25  # 到达目标旋转角度的容许误差范围，单位为弧度
 
+    #可以考虑换成TEB DWA
     # DWB参数
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"  # 使用DWB作为局部路径规划器的插件
+      
       debug_trajectory_details: True  # 开启调试，以便输出轨迹细节信息
+
+      update_frequency: 30.0  
+
       min_vel_x: 0.0  # 最小x轴速度
       min_vel_y: 0.0  # 最小y轴速度，对于非全向机器人通常为0
       max_vel_x: 2.0  # 最大x轴速度
       max_vel_y: 0.0  # 最大y轴速度，对于非全向机器人通常为0
       max_vel_theta: 4.0  # 最大角速度
       min_speed_xy: 0.0  # 最小平移速度
-      max_speed_xy: 1.0  # 最大平移速度
+      max_speed_xy: 2.0  # 最大平移速度
       min_speed_theta: 0.0  # 最小旋转速度
-      acc_lim_x: 0.4  # x轴加速度限制
+      acc_lim_x: 2.0  # x轴加速度限制
       acc_lim_y: 0.0  # y轴加速度限制，对于非全向机器人通常为0
       acc_lim_theta: 4.0  # 角加速度限制
       decel_lim_x: -1.0  # x轴减速度限制
@@ -224,21 +229,23 @@ controller_server:
 local_costmap:  # 局部代价地图的配置开始
   local_costmap:
     ros__parameters:
-      update_frequency: 20.0  # 代价地图更新频率，单位为Hz（每秒更新次数）
-      publish_frequency: 20.0  # 代价地图发布频率，单位为Hz
+      update_frequency: 35.0  # 代价地图更新频率，单位为Hz（每秒更新次数）
+      publish_frequency: 35.0  # 代价地图发布频率，单位为Hz
       global_frame: odom  # 全局参考框架，通常是里程计odom
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）
       rolling_window: true  # 是否使用滚动窗口，对于局部代价地图通常设置为true
       width: 10  # 代价地图宽度，单位为米
       height: 10  # 代价地图高度，单位为米
-      resolution: 0.3  # 代价地图分辨率，单位为米/像素
-      robot_radius: 0.7  # 机器人半径，用于计算碰撞
+
+      resolution: 0.05  # 代价地图分辨率，单位为米/像素
+
+      robot_radius: 0.5 # 机器人半径，用于计算碰撞
       plugins: ["voxel_layer", "inflation_layer"]  # 使用的插件列表
       inflation_layer:  # 膨胀层配置
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 0.25  # 成本缩放因子
-        inflation_radius: 5.0  # 膨胀半径，单位为米
+        cost_scaling_factor: 1.0  # 成本缩放因子
+        inflation_radius: 0.5  # 膨胀半径，单位为米
       voxel_layer:  # 体素层配置
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True  # 是否启用
@@ -246,18 +253,18 @@ local_costmap:  # 局部代价地图的配置开始
         origin_z: 0.0  # Z轴原点位置
         z_resolution: 0.3  # Z轴分辨率
         z_voxels: 16  # Z轴上的体素数
-        max_obstacle_height: 10.0  # 最大障碍物高度
+        max_obstacle_height: 99999.0  # 最大障碍物高度
         mark_threshold: 0  # 标记阈值
         observation_sources: scan  # 观测源
         scan:  # 激光扫描观测源配置
           topic: /scan  # 话题名
-          max_obstacle_height: 2.0  # 最大障碍物高度
+          max_obstacle_height: 99999.0  # 最大障碍物高度
           clearing: True  # 是否清除障碍
           marking: True  # 是否标记障碍
           data_type: "LaserScan"  # 数据类型
-          raytrace_max_range: 16.0  # 射线追踪最大范围
+          raytrace_max_range: 10.0  # 射线追踪最大范围
           raytrace_min_range: 0.0  # 射线追踪最小范围
-          obstacle_max_range: 16.0  # 障碍物最大范围
+          obstacle_max_range: 10.0  # 障碍物最大范围
           obstacle_min_range: 0.0  # 障碍物最小范围
       static_layer:  # 静态层配置
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -267,22 +274,23 @@ local_costmap:  # 局部代价地图的配置开始
 global_costmap:  # 全局代价地图配置开始
   global_costmap:
     ros__parameters:
-      update_frequency: 2.0 # 代价地图更新频率，单位为Hz（每秒更新次数）
-      publish_frequency: 2.0  # 代价地图发布频率，单位为Hz
+      update_frequency: 10.0 # 代价地图更新频率，单位为Hz（每秒更新次数）
+      publish_frequency: 10.0  # 代价地图发布频率，单位为Hz
       global_frame: map  # 全局参考框架，通常是地图
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）
-      robot_radius: 0.7  # 机器人半径，用于计算碰撞
-      resolution: 0.3  # 代价地图分辨率，单位为米/像素
+      robot_radius: 0.5  # 机器人半径，用于计算碰撞
+      resolution: 0.05  # 代价地图分辨率，单位为米/像素
       track_unknown_space: true  # 是否追踪未知空间
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]  # 使用的插件列表
       obstacle_layer:  # 障碍物层配置
+        max_obstacle_height: 99999.0  # 最大障碍物高度
         plugin: "nav2_costmap_2d::ObstacleLayer"  # 使用ObstacleLayer插件
         enabled: True  # 是否启用
         observation_sources: scan  # 观测源
         scan:  # 激光扫描观测源配置
           topic: /scan  # 话题名
-          max_obstacle_height: 2.0  # 最大障碍物高度
+          max_obstacle_height: 99999.0  # 最大障碍物高度
           clearing: True  # 是否清除障碍
           marking: True  # 是否标记障碍
           data_type: "LaserScan"  # 数据类型
@@ -293,10 +301,13 @@ global_costmap:  # 全局代价地图配置开始
       static_layer:  # 静态层配置
         plugin: "nav2_costmap_2d::StaticLayer"  # 使用StaticLayer插件
         map_subscribe_transient_local: True  # 订阅地图为临时本地类型
+        inflation_radius: 0.5  # 膨胀半径，单位为米
       inflation_layer:  # 膨胀层配置
         plugin: "nav2_costmap_2d::InflationLayer"  # 使用InflationLayer插件
-        cost_scaling_factor: 0.25  # 成本缩放因子
-        inflation_radius: 5.0  # 膨胀半径，单位为米
+        cost_scaling_factor: 2.5  # 成本缩放因子
+        inflation_radius: 0.5 # 膨胀半径，单位为米
+        # inflate_around_unknown: true
+        inflate_unknown: true
       always_send_full_costmap: True  # 是否总是发送完整的代价地图
 
 map_server:  # 地图服务器配置
@@ -325,6 +336,7 @@ planner_server:  # 规划器服务器配置
       use_astar: false  # 使用A*算法（否）
       allow_unknown: true  # 允许未知区域
 
+
 smoother_server:  # 平滑器服务器配置
   ros__parameters:  # ROS参数
     use_sim_time: True  # 使用仿真时间
@@ -339,7 +351,7 @@ behavior_server:  # 行为服务器配置
   ros__parameters:  # ROS参数
     costmap_topic: local_costmap/costmap_raw  # 成本地图话题
     footprint_topic: local_costmap/published_footprint  # 足迹话题
-    cycle_frequency: 10.0  # 循环频率（Hz）
+    cycle_frequency: 20.0  # 循环频率（Hz）
     behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]  # 行为插件列表
     spin:  # 自旋行为配置
       plugin: "nav2_behaviors/Spin"  # 插件名称
@@ -381,9 +393,9 @@ velocity_smoother:  # 速度平滑器配置
     smoothing_frequency: 20.0  # 平滑频率（Hz）
     scale_velocities: False  # 缩放速度（否）
     feedback: "OPEN_LOOP"  # 反馈类型（开环）
-    max_velocity: [4.0, 0.0, 2.0]  # 最大速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
+    max_velocity: [2.0, 0.0, 2.0]  # 最大速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
     min_velocity: [0.0, 0.0, -1.0]  # 最小速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
-    max_accel: [0.4, 0.0, 3.2]  # 最大加速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
+    max_accel: [2.0, 0.0, 3.2]  # 最大加速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
     max_decel: [-1.0, 0.0, -3.2]  # 最大减速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
     odom_topic: "odom"  # 里程计话题
     odom_duration: 0.1  # 里程计时长（秒）
