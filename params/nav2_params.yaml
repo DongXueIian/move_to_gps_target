@@ -146,7 +146,112 @@ bt_navigator_navigate_to_pose_rclcpp_node:  # 导航器到姿势节点配置
   ros__parameters:  # ROS参数
     use_sim_time: True  # 使用仿真时间
 
-# 控制器服务器配置
+
+# MPPI控制器服务器配置
+# controller_server:
+#   ros__parameters:
+#     controller_frequency: 30.0
+#     FollowPath:
+#       plugin: "nav2_mppi_controller::MPPIController"
+#       time_steps: 56
+#       model_dt: 0.05
+#       batch_size: 2000
+#       vx_std: 0.2
+#       vy_std: 0.2
+#       wz_std: 0.4
+#       vx_max: 0.5
+#       vx_min: -0.35
+#       vy_max: 0.5
+#       wz_max: 1.9
+#       iteration_count: 1
+#       prune_distance: 1.7
+#       transform_tolerance: 0.1
+#       temperature: 0.3
+#       gamma: 0.015
+#       motion_model: "DiffDrive"
+#       visualize: false
+#       reset_period: 1.0 # (only in Humble)
+#       regenerate_noises: false
+#       TrajectoryVisualizer:
+#         trajectory_step: 5
+#         time_step: 3
+#       AckermannConstraints:
+#         min_turning_r: 0.2
+#       critics: ["ConstraintCritic", "CostCritic", "GoalCritic", "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic", "PathAngleCritic", "PreferForwardCritic"]
+#       ConstraintCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 4.0
+#       GoalCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 5.0
+#         threshold_to_consider: 1.4
+#       GoalAngleCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 3.0
+#         threshold_to_consider: 0.5
+#       PreferForwardCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 5.0
+#         threshold_to_consider: 0.5
+#       # ObstaclesCritic:
+#       #   enabled: true
+#       #   cost_power: 1
+#       #   repulsion_weight: 1.5
+#       #   critical_weight: 20.0
+#       #   consider_footprint: false
+#       #   collision_cost: 10000.0
+#       #   collision_margin_distance: 0.1
+#       #   near_goal_distance: 0.5
+#       #   inflation_radius: 0.55 # (only in Humble)
+#       #   cost_scaling_factor: 10.0 # (only in Humble)
+#       CostCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 3.81
+#         critical_cost: 300.0
+#         consider_footprint: true
+#         collision_cost: 1000000.0
+#         near_goal_distance: 1.0
+#         trajectory_point_step: 2
+#       PathAlignCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 14.0
+#         max_path_occupancy_ratio: 0.05
+#         trajectory_point_step: 4
+#         threshold_to_consider: 0.5
+#         offset_from_furthest: 20
+#         use_path_orientations: false
+#       PathFollowCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 5.0
+#         offset_from_furthest: 5
+#         threshold_to_consider: 1.4
+#       PathAngleCritic:
+#         enabled: true
+#         cost_power: 1
+#         cost_weight: 2.0
+#         offset_from_furthest: 4
+#         threshold_to_consider: 0.5
+#         max_angle_to_furthest: 1.0
+#         mode: 0
+#       # VelocityDeadbandCritic:
+#       #   enabled: true
+#       #   cost_power: 1
+#       #   cost_weight: 35.0
+#       #   deadband_velocities: [0.05, 0.05, 0.05]
+#       # TwirlingCritic:
+#       #   enabled: true
+#       #   twirling_cost_power: 1
+#       #   twirling_cost_weight: 10.0
+
+
+# dwb控制器服务器配置
 controller_server:
   ros__parameters:
     use_sim_time: True  # 使用仿真时间
@@ -190,25 +295,26 @@ controller_server:
 
       min_vel_x: 0.0  # 最小x轴速度
       min_vel_y: 0.0  # 最小y轴速度，对于非全向机器人通常为0
-      max_vel_x: 2.0  # 最大x轴速度
+      max_vel_x: 10.0  # 最大x轴速度
       max_vel_y: 0.0  # 最大y轴速度，对于非全向机器人通常为0
-      max_vel_theta: 4.0  # 最大角速度
+      max_vel_theta: 0.52  # 最大角速度
       min_speed_xy: 0.0  # 最小平移速度
-      max_speed_xy: 2.0  # 最大平移速度
+      max_speed_xy: 10.0  # 最大平移速度
       min_speed_theta: 0.0  # 最小旋转速度
-      acc_lim_x: 2.0  # x轴加速度限制
+      acc_lim_x: 4.0  # x轴加速度限制
       acc_lim_y: 0.0  # y轴加速度限制，对于非全向机器人通常为0
-      acc_lim_theta: 4.0  # 角加速度限制
-      decel_lim_x: -1.0  # x轴减速度限制
+      acc_lim_theta: 1.0  # 角加速度限制
+      decel_lim_x: -4.0  # x轴减速度限制
       decel_lim_y: 0.0  # y轴减速度限制，对于非全向机器人通常为0
       decel_lim_theta: -1.0  # 角减速度限制
-      vx_samples: 20  # x轴速度采样数
-      vy_samples: 5  # y轴速度采样数，对于非全向机器人可能不适用
-      vtheta_samples: 20  # 角速度采样数
-      sim_time: 3.0  # 轨迹模拟时间
+      vx_samples: 40  # x轴速度采样数
+      vy_samples: 0  # y轴速度采样数，对于非全向机器人可能不适用
+      vtheta_samples: 40  # 角速度采样数
+      sim_time: 4.0  # 轨迹模拟时间
       linear_granularity: 0.15  # 线性轨迹的粒度
-      angular_granularity: 0.1  # 角轨迹的粒度
-      transform_tolerance: 2.0  # 坐标变换容忍度
+      angular_granularity: 0.03  # 角轨迹的粒度
+      # occdist_scale: 0.02 躲避障碍物
+      transform_tolerance: 4.0  # 坐标变换容忍度
       xy_goal_tolerance: 0.5  # 到达目标的xy容忍度
       trans_stopped_velocity: 0.15  # 低于此速度则认为是停止状态
       short_circuit_trajectory_evaluation: True  # 若为真，则在找到有效轨迹时停止评估
@@ -368,9 +474,9 @@ behavior_server:  # 行为服务器配置
     transform_tolerance: 2.0  # 变换容差
     use_sim_time: True  # 使用仿真时间
     simulate_ahead_time: 3.0  # 模拟提前时间（秒）
-    max_rotational_vel: 4.0  # 最大旋转速度（rad/s）
+    max_rotational_vel: 0.52  # 最大旋转速度（rad/s）
     min_rotational_vel: 0.2  # 最小旋转速度（rad/s）
-    rotational_acc_lim: 4.0  # 旋转加速度限制（rad/s^2）
+    rotational_acc_lim: 1.0  # 旋转加速度限制（rad/s^2）
 
 robot_state_publisher:  # 机器人状态发布器配置
   ros__parameters:  # ROS参数
@@ -393,10 +499,10 @@ velocity_smoother:  # 速度平滑器配置
     smoothing_frequency: 20.0  # 平滑频率（Hz）
     scale_velocities: False  # 缩放速度（否）
     feedback: "OPEN_LOOP"  # 反馈类型（开环）
-    max_velocity: [2.0, 0.0, 2.0]  # 最大速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
+    max_velocity: [10.0, 0.0, 2.0]  # 最大速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
     min_velocity: [0.0, 0.0, -1.0]  # 最小速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
-    max_accel: [2.0, 0.0, 3.2]  # 最大加速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
-    max_decel: [-1.0, 0.0, -3.2]  # 最大减速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
+    max_accel: [4.0, 0.0, 3.2]  # 最大加速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
+    max_decel: [-4.0, 0.0, -3.2]  # 最大减速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
     odom_topic: "odom"  # 里程计话题
     odom_duration: 0.1  # 里程计时长（秒）
     deadband_velocity: [0.0, 0.0, 0.0]  # 死区速度 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
