@@ -243,7 +243,7 @@ controller_server:
         cost_power: 1  # 成本幂
         repulsion_weight: 1.5  # 排斥权重
         critical_weight: 20.0  # 关键权重
-        consider_footprint: false  # 是否考虑足迹
+        consider_footprint: True  # 是否考虑足迹
         collision_cost: 10000.0  # 碰撞成本
         collision_margin_distance: 0.15  # 碰撞边缘距离
         near_goal_distance: 0.5  # 接近目标距离
@@ -345,8 +345,8 @@ controller_server:
 local_costmap:  # 局部代价地图的配置开始
   local_costmap:
     ros__parameters:
-      update_frequency: 35.0  # 代价地图更新频率，单位为Hz（每秒更新次数）
-      publish_frequency: 35.0  # 代价地图发布频率，单位为Hz
+      update_frequency: 70.0  # 代价地图更新频率，单位为Hz（每秒更新次数）
+      publish_frequency: 70.0  # 代价地图发布频率，单位为Hz
       global_frame: odom  # 全局参考框架，通常是里程计odom
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）
@@ -360,7 +360,7 @@ local_costmap:  # 局部代价地图的配置开始
       plugins: ["voxel_layer", "inflation_layer"]  # 使用的插件列表
       inflation_layer:  # 膨胀层配置
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 1.0  # 成本缩放因子
+        cost_scaling_factor: 2.5   # 成本缩放因子
         inflation_radius: 1.0  # 膨胀半径，单位为米
       voxel_layer:  # 体素层配置
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -420,7 +420,7 @@ global_costmap:  # 全局代价地图配置开始
         inflation_radius: 0.5  # 膨胀半径，单位为米
       inflation_layer:  # 膨胀层配置
         plugin: "nav2_costmap_2d::InflationLayer"  # 使用InflationLayer插件
-        cost_scaling_factor: 2.5  # 成本缩放因子
+        cost_scaling_factor: 10.0  # 成本缩放因子
         inflation_radius: 1.0 # 膨胀半径，单位为米
         # inflate_around_unknown: true
         inflate_unknown: true
