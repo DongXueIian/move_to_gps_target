@@ -18,7 +18,7 @@ class MySimpleNav2Command(Node):
 def main():
     # 初始化rclpy库
     rclpy.init()
-    my_nav_command = MySimpleNav2Command(0.25,4.0)
+    my_nav_command = MySimpleNav2Command(1.0,5.0)
     # 让ROS 2节点运行起来，监听和处理回调函数，直到节点被显式地关闭
     rclpy.spin(my_nav_command)
     # 销毁节点，进行清理
