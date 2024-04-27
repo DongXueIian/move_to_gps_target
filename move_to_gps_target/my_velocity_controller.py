@@ -11,12 +11,58 @@ from rclpy.executors import SingleThreadedExecutor
 range_degrees = 12
 isTwirlingCriticEnabled=False
 lastIsTwirlingCriticEnabled=False
-class setNavParams(Node):
+apmControllernNameSpace='/apm_drone'
+# class setNavParams(Node):
+#     def __init__(self):
+#         super().__init__('set_nav_params')
+#         self.set_params = self.create_client(SetParameters, "/controller_server/set_parameters")
+#         self.set_params.wait_for_service(1)
+#         self.create_timer(0.1, self.get_params)
+#     def get_params(self):
+#         global isTwirlingCriticEnabled,lastIsTwirlingCriticEnabled
+#         if lastIsTwirlingCriticEnabled!=isTwirlingCriticEnabled:
+#             lastIsTwirlingCriticEnabled=isTwirlingCriticEnabled
+#             # 创建设置参数请求
+#             req = SetParameters.Request()
+#             # 设置参数数据
+#             req.parameters = [Parameter(name="FollowPath.TwirlingCritic.enabled",value=ParameterValue(bool_value=isTwirlingCriticEnabled,type=ParameterType.PARAMETER_BOOL))]
+#             # 发送请求
+#             self.set_params.call_async(req)
+#             print('send---'+str(isTwirlingCriticEnabled))
+class CmdVelModifier(Node):
     def __init__(self):
-        super().__init__('set_nav_params')
+        super().__init__('cmd_vel_modifier')
+        self.current_cmd_vel_data=Twist()
+        self.current_cmd_vel_data.linear.x=0.0
+        self.subscription_cmd_vel = self.create_subscription(
+            Twist,
+            '/cmd_vel',
+            self.cmd_vel_callback,
+            20
+        )
+        self.subscription_cuuent_cmd_vel = self.create_subscription(
+            Twist,
+            apmControllernNameSpace+'/current_velocity',
+            self.current_cmd_vel_callback,
+            20
+        )
+        self.subscription_scan = self.create_subscription(
+            LaserScan,
+            '/scan',
+            self.scan_callback,
+            20
+        )
+
+        self.publisher_ = self.create_publisher(Twist, apmControllernNameSpace+'/target_cmd_vel', 20)
+        
+        self.cmd_vel_data = Twist()
+        self.laser_data = LaserScan()
+        self.timer = self.create_timer(1/20, self.timer_callback)
+
         self.set_params = self.create_client(SetParameters, "/controller_server/set_parameters")
         self.set_params.wait_for_service(1)
         self.create_timer(0.1, self.get_params)
+
     def get_params(self):
         global isTwirlingCriticEnabled,lastIsTwirlingCriticEnabled
         if lastIsTwirlingCriticEnabled!=isTwirlingCriticEnabled:
@@ -27,29 +73,12 @@ class setNavParams(Node):
             req.parameters = [Parameter(name="FollowPath.TwirlingCritic.enabled",value=ParameterValue(bool_value=isTwirlingCriticEnabled,type=ParameterType.PARAMETER_BOOL))]
             # 发送请求
             self.set_params.call_async(req)
-            print('send---'+str(isTwirlingCriticEnabled))
-class CmdVelModifier(Node):
-    def __init__(self):
-        super().__init__('cmd_vel_modifier')
-        self.subscription_cmd_vel = self.create_subscription(
-            Twist,
-            '/cmd_vel',
-            self.cmd_vel_callback,
-            20
-        )
-        self.subscription_scan = self.create_subscription(
-            LaserScan,
-            '/scan',
-            self.scan_callback,
-            20
-        )
-        self.publisher_ = self.create_publisher(Twist, '/my_cmd_vel', 20)
-        
-        self.cmd_vel_data = Twist()
-        self.laser_data = LaserScan()
-        self.timer = self.create_timer(1/20, self.timer_callback)
+            self.get_logger().info('send---'+str(isTwirlingCriticEnabled))
 
-        
+
+    def current_cmd_vel_callback(self,msg):
+        # print(msg)
+        self.current_cmd_vel_data = msg
 
     def cmd_vel_callback(self, msg):
         self.cmd_vel_data = msg
@@ -76,7 +105,7 @@ class CmdVelModifier(Node):
 
                 # 查找正前方最近的障碍物距离
                 min_distance = min((distance for distance in forward_ranges if distance > 0), default=float('10'))
-                if min_distance>2.5:
+                if self.current_cmd_vel_data.linear.x>1.5:
                     isTwirlingCriticEnabled=True
                     range_degrees=5
                 else:
@@ -116,19 +145,29 @@ def node_spin(node):
     finally:
         executor.shutdown()
         node.destroy_node()
-def main(args=None):
-    rclpy.init(args=args)
-    try:
-        cmd_vel_modifier = CmdVelModifier()
-        set_nav_params = setNavParams()
-        # 为每个节点创建独立线程
-        cmd_vel_modifier_thread = threading.Thread(target=node_spin, args=(cmd_vel_modifier,))
-        set_nav_params_thread = threading.Thread(target=node_spin, args=(set_nav_params,))
-        cmd_vel_modifier_thread.start()
-        set_nav_params_thread.start()
-        cmd_vel_modifier_thread.join()
-        set_nav_params_thread.join()
-    finally:
-        rclpy.shutdown()
+def main():
+    # rclpy.init(args=args)
+    # try:
+    #     cmd_vel_modifier = CmdVelModifier()
+    #     # set_nav_params = setNavParams()
+    #     # 为每个节点创建独立线程
+    #     cmd_vel_modifier_thread = threading.Thread(target=node_spin, args=(cmd_vel_modifier,))
+    #     # set_nav_params_thread = threading.Thread(target=node_spin, args=(set_nav_params,))
+    #     cmd_vel_modifier_thread.start()
+    #     # set_nav_params_thread.start()
+    #     cmd_vel_modifier_thread.join()
+    #     # set_nav_params_thread.join()
+    # finally:
+    #     rclpy.shutdown()
+
+    # 初始化rclpy库
+    rclpy.init()
+    cmd_vel_modifier = CmdVelModifier()
+    # 让ROS 2节点运行起来，监听和处理回调函数，直到节点被显式地关闭
+    rclpy.spin(cmd_vel_modifier)
+    # 销毁节点，进行清理
+    cmd_vel_modifier.destroy_node()
+    # 关闭rclpy库，释放资源
+    rclpy.shutdown()
 if __name__ == '__main__':
     main()
