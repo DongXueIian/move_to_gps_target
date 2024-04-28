@@ -277,6 +277,13 @@ def generate_launch_description():
             output='screen',
             # arguments=['time', '1.0']
         )
+    
+    apm_controller_node_setup_cmd=Node(
+            package='move_to_gps_target',
+            executable='apm_controller_node',
+            output='screen',
+            # arguments=['time', '1.0']
+        )
 
     TF2ListenerExample_cmd=Node(
             package='myTestPockage',
@@ -313,5 +320,6 @@ def generate_launch_description():
     # ld.add_action(nav2_setup_cmd)
     ld.add_action(clear_nav2_costmap_cmd)
     ld.add_action(my_velocity_controller_setup_cmd)
+    ld.add_action(apm_controller_node_setup_cmd)
     # ld.add_action(TF2ListenerExample_cmd)
     return ld

@@ -25,7 +25,8 @@ setup(
     entry_points={
         'console_scripts': [
             'regularly_clear_costmap_after_starting_nav2=move_to_gps_target.regularly_clear_costmap_after_starting_nav2_node:main',
-            'my_velocity_controller=move_to_gps_target.my_velocity_controller:main'
+            'my_velocity_controller=move_to_gps_target.my_velocity_controller:main',
+            'apm_controller_node=move_to_gps_target.apm_controller_node:main'
         ],
     },
 )

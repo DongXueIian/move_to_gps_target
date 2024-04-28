@@ -1,13 +1,10 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from geometry_msgs.msg import TwistStamped
 from dronekit import connect, VehicleMode
 from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import BatteryState, NavSatFix
-from std_msgs.msg import String
 import time
-from rclpy.node import Node
 from rclpy.clock import ROSClock
 from geometry_msgs.msg import Twist
 from pymavlink import mavutil
@@ -17,6 +14,8 @@ import math
 connectUrl='10.10.10.20:14550'
 # connectUrl='/dev/ttyUSB1'
 apmControllernNameSpace='/apm_drone'
+
+TAKE_OFF_ALTITUDE=1.0
 
 class apmControllernNode(Node):
     def __init__(self):
@@ -29,6 +28,18 @@ class apmControllernNode(Node):
         # 连接到无人机
         self.vehicle = self.tryConnect(connectUrl)
         self.vehicle.mode = VehicleMode('GUIDED')
+
+        self.gyro_x=0.0
+        self.gyro_y=0.0
+        self.gyro_z=0.0
+        
+        self.control_mode='GUIDED'
+        # 在连接后添加消息监听器
+        self.vehicle.add_message_listener('RAW_IMU', self.listen_raw_imu)
+
+        self.action_count=0
+        self.high_permission_velocity_call=False
+
         # 订阅来自ROS的主题
         self.subscription_mode = self.create_subscription(
             String,
@@ -41,7 +52,12 @@ class apmControllernNode(Node):
             apmControllernNameSpace+'/target_cmd_vel',
             self.velocity_callback,
             10)
-        
+        self.subscription_velocity = self.create_subscription(
+            Twist,
+            # '/target_velocity',
+            apmControllernNameSpace+'/high_permission_target_cmd_vel',
+            self.high_permission_velocity_callback,
+            10)
         # 发布到ROS的主题
         self.publisher_current_velocity = self.create_publisher(
             Twist,
@@ -90,6 +106,7 @@ class apmControllernNode(Node):
                 # print("waiting to be armable")
                 self.get_logger().info("waiting to be armable")
                 lastTime=time.time()
+        self.get_logger().info("get ready to be arm")
         return vehicle
 
     def monitor_loop_time(self, last_time, expected_interval):
@@ -142,22 +159,46 @@ class apmControllernNode(Node):
         self.vehicle.flush()
 
     def mode_callback(self, msg):
-        # 更改无人机的模式
-        self.vehicle.mode = VehicleMode(msg.data)
-
+        if self.control_mode!=msg.data:
+            self.control_mode=msg.data
+            self.get_logger().info(f'apm controller change mode to: {self.control_mode}')
+            global TAKE_OFF_ALTITUDE
+            # 直接更改无人机的模式
+            if msg.data in ['RTL','STABILIZE','GUIDED','LAND']:
+                self.vehicle.mode = VehicleMode(msg.data)
+            elif msg.data=='ARM':
+                self.vehicle.armed = True
+            elif msg.data=='DISARM':
+                self.vehicle.armed = False
+            elif msg.data=='TAKEOFF':
+                self.vehicle.mode = VehicleMode("GUIDED")
+                if not self.vehicle.armed: 
+                    self.get_logger().warn('can not take off , please arm!')
+                    self.control_mode='GUIDED'
+                else:
+                    self.vehicle.simple_takeoff(TAKE_OFF_ALTITUDE)
     def velocity_callback(self, msg):
         # 设置无人机的目标速度
-        self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
+        if self.control_mode=='GUIDED' and self.vehicle.armed and not self.high_permission_velocity_call:
+            self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
+    
+    def high_permission_velocity_callback(self, msg):
+        # 设置无人机的目标速度
+        if self.control_mode=='GUIDED' and self.vehicle.armed:
+            self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
+            self.high_permission_velocity_call=True
 
     def update_state_5hz(self):
         pass
     def loop_action_10hz(self):
         self.last_call_loop_action_10hz = self.monitor_loop_time(self.last_call_loop_action_10hz, 0.1)
-        pass
+        self.action_count=self.action_count+1
+        if self.high_permission_velocity_call and self.action_count % 10 == 0:
+            self.high_permission_velocity_call=False
 
     def update_state_10hz(self):
         # 发布无人机的当前飞行模式
-        mode_msg = String(data=str(self.vehicle.mode.name))
+        mode_msg = String(data=str(self.control_mode))
         self.publisher_current_mode.publish(mode_msg)
 
         # 发布无人机的当前状态
@@ -177,6 +218,9 @@ class apmControllernNode(Node):
         velocity_msg.linear.x = current_velocity[0] * cos_yaw - current_velocity[1] * sin_yaw
         velocity_msg.linear.y = -current_velocity[0] * sin_yaw -current_velocity[1] * cos_yaw
         velocity_msg.linear.z = current_velocity[2]
+        velocity_msg.angular.x=self.gyro_x
+        velocity_msg.angular.y=self.gyro_y
+        velocity_msg.angular.z=self.gyro_z
         # print(velocity_msg.linear)
         self.publisher_current_velocity.publish(velocity_msg)
 
@@ -198,11 +242,22 @@ class apmControllernNode(Node):
         battery_msg.percentage =  100.0  # Assuming 'level' is given as a percentage
         self.publisher_battery.publish(battery_msg)
         # print(self.vehicle.battery)
+
+    # 定义一个回调函数来处理 RAW_IMU 消息
+    def listen_raw_imu(self, vehicle, name, message):
+        if message.get_type() == 'RAW_IMU':
+            self.gyro_x = message.xgyro/1000
+            self.gyro_y = message.ygyro/1000
+            self.gyro_z = -message.zgyro/1000
+            # print(f"Gyro X: {gyro_x}, Gyro Y: {gyro_y}, Gyro Z: {gyro_z}")
+
+
+
     def destroy_node(self):
         # 添加您希望在节点销毁时执行的任务
         self.get_logger().info('Shutting down: closing vehicle connection and cleaning up resources')
         if self.vehicle is not None:
-            self.vehicle.close()  # 假设有一个关闭无人机连接的方法
+            self.vehicle.close() 
         # 这里可以添加其他清理资源的代码
         super().destroy_node()
 def main(args=None):

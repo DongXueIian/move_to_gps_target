@@ -46,8 +46,8 @@ class KeyboardController(Node):
     def __init__(self):
         super().__init__('keyboard_velocity_controller')
         global apmControllernNameSpace
-        self.mode=''
-        self.publisher_cmd_vel = self.create_publisher(Twist,apmControllernNameSpace + '/target_cmd_vel', 10)
+        self.drone_mode=''
+        self.publisher_cmd_vel = self.create_publisher(Twist,apmControllernNameSpace + '/high_permission_target_cmd_vel', 10)
         self.publisher_mode = self.create_publisher(String,apmControllernNameSpace + '/target_mode', 10)
         self.subscription_current_velocity = self.create_subscription(
             Twist, 
@@ -56,7 +56,7 @@ class KeyboardController(Node):
             10)
         self.subscription_mode = self.create_subscription(
             String,
-            apmControllernNameSpace+'/target_mode',
+            apmControllernNameSpace+'/current_mode',
             self.mode_callback,
             10)
         self.print_msg_10hz_timer=self.create_timer(0.1, self.print_msg_10hz)
@@ -66,25 +66,24 @@ class KeyboardController(Node):
 
     def mode_callback(self, msg):
         # 更改无人机的模式
-        self.mode = msg.data
+        self.drone_mode = msg.data
 
     def print_msg_10hz(self):
-        global debug
+        global debug,target_mode
         if debug:
             pass
         else:
             global current_forward,current_leftward,current_upward
             global target_forward,target_leftward,target_upward,target_angular
             print(msg)  
-            print(f'当前模式：{self.mode}')
+            print(f'飞机模式：{self.drone_mode} 键盘模式：{target_mode}')
             print(f'当前速度：{current_forward:.2f} {current_leftward:.2f} {current_upward:.2f}')
             print(f'键盘期望速度：{target_forward:.2f} {target_leftward:.2f} {target_upward:.2f} {target_angular:.2f}')
 
     def publish_msg_10hz(self):
-        global debug
-        if debug==False:
+        global debug,target_mode
+        if debug==False and target_mode!='KEYBOARD_LOCK':
             global target_forward,target_leftward,target_upward,target_angular
-            global target_mode
             target_twist = Twist()
             target_twist.linear.x=target_forward
             target_twist.linear.y=target_leftward
@@ -94,6 +93,7 @@ class KeyboardController(Node):
             if target_mode!='':
                 mode_msg = String(data=target_mode)
                 self.publisher_mode.publish(mode_msg)
+                # target_mode=''
     def current_velocity_callback(self, msg):
         global current_forward,current_leftward,current_upward
         current_forward=msg.linear.x
@@ -130,9 +130,9 @@ class KeyboardController(Node):
             elif key.char == 'r':
                 target_mode='RTL'
             elif key.char == 't':
-                target_mode='GUIDED'
+                target_mode='ARM'
             elif key.char == 'y':
-                target_mode='GUIDED'
+                target_mode='DISARM'
             elif key.char == 'u':
                 target_mode='STABILIZE'
             elif key.char == 'b':
@@ -140,9 +140,9 @@ class KeyboardController(Node):
             elif key.char == 'n':
                 target_mode='LAND'
             elif key.char == 'o':
-                target_mode='GUIDED'
+                target_mode='KEYBOARD_LOCK'
             elif key.char == 'p':
-                target_mode='GUIDED'
+                target_mode='TEST'
             elif key.char in ['k', 's']:
                 target_forward   = 0.0
                 target_leftward   = 0.0
@@ -150,7 +150,7 @@ class KeyboardController(Node):
                 target_angular  = 0.0
                 target_mode='GUIDED'
             elif key.char == 'v':
-                target_mode='GUIDED'
+                target_mode='TAKEOFF'
         except AttributeError:
             if key == Key.esc:
                 # Stop listener
