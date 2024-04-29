@@ -26,7 +26,8 @@ from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node,PushRosNamespace
 from launch_ros.descriptions import ParameterFile
 from nav2_common.launch import ReplaceString, RewrittenYaml
-
+from launch_ros.descriptions import ComposableNode, ParameterFile
+from launch_ros.actions import LoadComposableNodes, SetParameter
 
 
 def generate_launch_description():
@@ -49,7 +50,6 @@ def generate_launch_description():
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
     map_yaml_file = LaunchConfiguration('map')
-
     # Launch configuration variables specific to simulation
     use_simulator = LaunchConfiguration('use_simulator')
     use_robot_state_pub = LaunchConfiguration('use_robot_state_pub')
@@ -217,6 +217,22 @@ def generate_launch_description():
                 arguments=['--ros-args', '--log-level', log_level],
                 remappings=remappings,
                 output='screen',
+            ),
+
+            LoadComposableNodes(
+                target_container=(namespace, '/', 'nav2_container'),
+                composable_node_descriptions=[
+                    ComposableNode(
+                        package='nav2_map_server',
+                        plugin='nav2_map_server::MapServer',
+                        name='map_server',
+                        parameters=[
+                            configured_params,
+                            {'yaml_filename': map_yaml_file},
+                        ],
+                        remappings=remappings,
+                    ),
+                ],
             ),
             # IncludeLaunchDescription(
             #     PythonLaunchDescriptionSource(
