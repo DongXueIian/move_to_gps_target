@@ -54,6 +54,8 @@ def generate_launch_description():
     use_simulator = LaunchConfiguration('use_simulator')
     use_robot_state_pub = LaunchConfiguration('use_robot_state_pub')
 
+    lifecycle_nodes = ['map_server']
+
     pose = {'x': LaunchConfiguration('x_pose', default='-2.00'),
             'y': LaunchConfiguration('y_pose', default='-0.50'),
             'z': LaunchConfiguration('z_pose', default='0.01'),
@@ -195,6 +197,16 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
+    static_tf_pub_base_link_to_base_scan_cmd = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_pub_base_link_to_base_scan',
+        arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'base_scan'],
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+
+
     nav2_setup_cmd=IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(launch_dir, 'navigation_launch.py')),
         launch_arguments={'namespace': namespace,
@@ -231,6 +243,14 @@ def generate_launch_description():
                             {'yaml_filename': map_yaml_file},
                         ],
                         remappings=remappings,
+                    ),
+                    ComposableNode(
+                        package='nav2_lifecycle_manager',
+                        plugin='nav2_lifecycle_manager::LifecycleManager',
+                        name='lifecycle_manager_localization',
+                        parameters=[
+                            {'autostart': autostart, 'node_names': lifecycle_nodes}
+                        ],
                     ),
                 ],
             ),
@@ -328,14 +348,16 @@ def generate_launch_description():
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
     # Add any conditioned actions
-    
+
+    # ld.add_action(apm_controller_node_setup_cmd)
     ld.add_action(static_tf_pub_map_to_odom_cmd)
     ld.add_action(static_tf_pub_scan_to_footprint_cmd)
-    ld.add_action(bringup_cmd)
-    # ld.add_action(bringup_cmd_group)
+    ld.add_action(static_tf_pub_base_link_to_base_scan_cmd)
+    # ld.add_action(bringup_cmd)
+    ld.add_action(bringup_cmd_group)
     # ld.add_action(nav2_setup_cmd)
     ld.add_action(clear_nav2_costmap_cmd)
     ld.add_action(my_velocity_controller_setup_cmd)
-    ld.add_action(apm_controller_node_setup_cmd)
+    
     # ld.add_action(TF2ListenerExample_cmd)
     return ld

@@ -20,6 +20,7 @@ target_angular = 0.0
 current_forward=0.0
 current_leftward=0.0
 current_upward=0.0
+current_angular_velocity_z=0.0
 
 target_mode=''
 
@@ -77,7 +78,7 @@ class KeyboardController(Node):
             global target_forward,target_leftward,target_upward,target_angular
             print(msg)  
             print(f'飞机模式：{self.drone_mode} 键盘模式：{target_mode}')
-            print(f'当前速度：{current_forward:.2f} {current_leftward:.2f} {current_upward:.2f}')
+            print(f'当前速度：{current_forward:.2f} {current_leftward:.2f} {current_upward:.2f} {current_angular_velocity_z:.2f}')
             print(f'键盘期望速度：{target_forward:.2f} {target_leftward:.2f} {target_upward:.2f} {target_angular:.2f}')
 
     def publish_msg_10hz(self):
@@ -95,10 +96,11 @@ class KeyboardController(Node):
                 self.publisher_mode.publish(mode_msg)
                 # target_mode=''
     def current_velocity_callback(self, msg):
-        global current_forward,current_leftward,current_upward
+        global current_forward,current_leftward,current_upward,current_angular_velocity_z
         current_forward=msg.linear.x
         current_leftward=msg.linear.y
         current_upward=msg.linear.z
+        current_angular_velocity_z=msg.angular.z
         # self.get_logger().info('Current Velocity - Linear: x: %f, y: %f, z: %f' % (msg.linear.x, msg.linear.y, msg.linear.z))
 
     def on_press(self, key):

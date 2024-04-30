@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from nav2_simple_commander.robot_navigator import BasicNavigator
+import time
 
 class MySimpleNav2Command(Node):
     def __init__(self,timeLocal,timeGlobal):
@@ -8,7 +9,7 @@ class MySimpleNav2Command(Node):
         super().__init__('regularly_clear_costmap_after_starting_nav2_node')
         self.nav2 = BasicNavigator()
         # 确保nav2已经完全启动
-        self.nav2.waitUntilNav2Active()
+        time.sleep(10)
         # 创建一个定时器，定期清理全局和局部代价地图
         self.timer = self.create_timer(timeLocal, self.nav2.clearLocalCostmap)
         self.timer = self.create_timer(timeGlobal, self.nav2.clearGlobalCostmap)

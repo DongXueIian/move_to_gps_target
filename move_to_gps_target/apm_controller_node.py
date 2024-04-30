@@ -5,30 +5,43 @@ from dronekit import connect, VehicleMode
 from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import BatteryState, NavSatFix
 import time
-from rclpy.clock import ROSClock
 from geometry_msgs.msg import Twist
 from pymavlink import mavutil
 import math
+from geometry_msgs.msg import PoseStamped
+from rosgraph_msgs.msg import Clock 
+from std_msgs.msg import Header
 
 # connectUrl='127.0.0.1:14550'
 connectUrl='10.10.10.20:14550'
 # connectUrl='/dev/ttyUSB1'
 apmControllernNameSpace='/apm_drone'
 
+hasClock=False
+simClock=None
+
 TAKE_OFF_ALTITUDE=1.0
 
 class apmControllernNode(Node):
     def __init__(self):
         super().__init__('apm_controller_node')
+        global hasClock,simClock
+        for topic_name, topic_type in self.get_topic_names_and_types():
+            if topic_name == '/clock':
+                hasClock = True
+                # simClock = self.get_topic_content(topic_name)
+        # print(self.get_topic_names_and_types())
         global connectUrl
         # self.ros2_mode=''
-        self.setup_time=self.get_clock().now()
-        self.last_call_loop_action_10hz=self.get_clock().now()
+
         super().__init__('apm_controller_node')
         # 连接到无人机
         self.vehicle = self.tryConnect(connectUrl)
         self.vehicle.mode = VehicleMode('GUIDED')
-
+        # self.vehicle.parameters['ATTITUDE_FREQ'] = 20 
+        # self.vehicle.set_stream_rate(1, 20)
+        rate=20
+        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,rate, 1)
         self.gyro_x=0.0
         self.gyro_y=0.0
         self.gyro_z=0.0
@@ -48,16 +61,20 @@ class apmControllernNode(Node):
             10)
         self.subscription_velocity = self.create_subscription(
             Twist,
-            # '/target_velocity',
             apmControllernNameSpace+'/target_cmd_vel',
             self.velocity_callback,
             10)
         self.subscription_velocity = self.create_subscription(
             Twist,
-            # '/target_velocity',
             apmControllernNameSpace+'/high_permission_target_cmd_vel',
             self.high_permission_velocity_callback,
             10)
+        if hasClock:
+            self.subscription_velocity = self.create_subscription(
+                Clock,
+                '/clock',
+                self.sim_clock_callback,
+                10)
         # 发布到ROS的主题
         self.publisher_current_velocity = self.create_publisher(
             Twist,
@@ -83,21 +100,29 @@ class apmControllernNode(Node):
             BatteryState,
             apmControllernNameSpace+'/current_battery',
             10)
-        self.publisher_attitude = self.create_publisher(
-            String,
-            apmControllernNameSpace+'/current_attitude',
+        self.publisher_local_location = self.create_publisher(
+            PoseStamped, 
+            apmControllernNameSpace+'/current_local_location',
             10)
-
         # 定时发布无人机状态
+        self.update_state_40hz_timer = self.create_timer(0.025, self.update_state_40hz)
         self.update_state_10hz_timer = self.create_timer(0.1, self.update_state_10hz)
         self.update_state_5hz_timer = self.create_timer(0.2, self.update_state_5hz)
         # 循环动作
         self.loop_action_10hz_timer= self.create_timer(0.1, self.loop_action_10hz)
 
+        # if hasClock:
+        #     self.setup_time=simClock.now()
+        #     self.last_call_loop_action_10hz=simClock.now()
+        # else:
+        self.setup_time=self.get_clock().now()
+        self.last_call_loop_action_10hz=self.get_clock().now()
+        # self.last_call_loop_action_10hz.nanoseconds=0
+
     def tryConnect(self,ipAddress):
         # print('Connecting '+ipAddress)
         self.get_logger().info('Connecting '+ipAddress)
-        vehicle = connect(ipAddress, wait_ready=True, baud=921600)
+        vehicle = connect(ipAddress, wait_ready=True,rate=20, baud=921600)
         # print('successfully connect to '+ipAddress)
         self.get_logger().info('successfully connect to '+ipAddress)
         lastTime=time.time()
@@ -181,30 +206,26 @@ class apmControllernNode(Node):
         # 设置无人机的目标速度
         if self.control_mode=='GUIDED' and self.vehicle.armed and not self.high_permission_velocity_call:
             self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
-    
+    def sim_clock_callback(self,msg):
+        global simClock
+        simClock=msg
     def high_permission_velocity_callback(self, msg):
         # 设置无人机的目标速度
         if self.control_mode=='GUIDED' and self.vehicle.armed:
             self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
             self.high_permission_velocity_call=True
-
     def update_state_5hz(self):
+        # self.vehicle.parameters['ATTITUDE_FREQ'] = 20 
+        rate=20
+        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,rate, 1)
         pass
     def loop_action_10hz(self):
+        # print("Local Location: %s" % self.vehicle.location.local_frame)
         self.last_call_loop_action_10hz = self.monitor_loop_time(self.last_call_loop_action_10hz, 0.1)
         self.action_count=self.action_count+1
         if self.high_permission_velocity_call and self.action_count % 10 == 0:
             self.high_permission_velocity_call=False
-
-    def update_state_10hz(self):
-        # 发布无人机的当前飞行模式
-        mode_msg = String(data=str(self.control_mode))
-        self.publisher_current_mode.publish(mode_msg)
-
-        # 发布无人机的当前状态
-        mode_state_msg = String(data="armed" if self.vehicle.armed else "disarmed")
-        self.publisher_current_mode_state.publish(mode_state_msg)
-
+    def update_state_40hz(self):
         # 发布无人机的当前速度
         # 使用当前的偏航角来旋转速度向量
         # 假设获取速度和姿态
@@ -228,6 +249,30 @@ class apmControllernNode(Node):
         attitude_msg = String(data=f"Roll: {self.vehicle.attitude.roll}, Pitch: {self.vehicle.attitude.pitch}, Yaw: {self.vehicle.attitude.yaw}")
         self.publisher_current_attitude.publish(attitude_msg)
 
+        local_location_msg = PoseStamped()
+        if hasClock and simClock!=None:
+            # print(simClock)
+            local_location_msg.header = Header()
+            local_location_msg.header.stamp = simClock.clock
+        else:
+            local_location_msg.header.stamp = self.get_clock().now().to_msg()
+        # print(local_location_msg.header.stamp)
+        local_location_msg.header.frame_id = 'local_location'  # 假设坐标系为map
+        local_location_msg.pose.position.x = self.vehicle.location.local_frame.north  # 替换为实际的x坐标
+        local_location_msg.pose.position.y = self.vehicle.location.local_frame.east  # 替换为实际的y坐标
+        local_location_msg.pose.position.z = self.vehicle.location.local_frame.down  # 替换为实际的z坐标
+
+        self.publisher_local_location.publish(local_location_msg)
+    def update_state_10hz(self):
+        # 发布无人机的当前飞行模式
+        mode_msg = String(data=str(self.control_mode))
+        self.publisher_current_mode.publish(mode_msg)
+
+        # 发布无人机的当前状态
+        mode_state_msg = String(data="armed" if self.vehicle.armed else "disarmed")
+        self.publisher_current_mode_state.publish(mode_state_msg)
+
+
         # 发布无人机的GPS数据
         gps_msg = NavSatFix()
         gps_msg.latitude = self.vehicle.location.global_frame.lat
@@ -242,6 +287,9 @@ class apmControllernNode(Node):
         battery_msg.percentage =  100.0  # Assuming 'level' is given as a percentage
         self.publisher_battery.publish(battery_msg)
         # print(self.vehicle.battery)
+
+
+        # self.get_logger().info('发布本地位置信息：%s' % local_location_msg.pose.position)
 
     # 定义一个回调函数来处理 RAW_IMU 消息
     def listen_raw_imu(self, vehicle, name, message):
