@@ -321,6 +321,13 @@ def generate_launch_description():
             # arguments=['time', '1.0']
         )
 
+    apm_gps_tf_node_setup_cmd=Node(
+            package='move_to_gps_target',
+            executable='apm_gps_tf_node',
+            output='screen',
+            # arguments=['time', '1.0']
+        )
+
     TF2ListenerExample_cmd=Node(
             package='myTestPockage',
             executable='TF2ListenerExample',
@@ -349,7 +356,9 @@ def generate_launch_description():
     ld.add_action(declare_log_level_cmd)
     # Add any conditioned actions
 
-    # ld.add_action(apm_controller_node_setup_cmd)
+    ld.add_action(apm_controller_node_setup_cmd)
+
+    ld.add_action(apm_gps_tf_node_setup_cmd)
     ld.add_action(static_tf_pub_map_to_odom_cmd)
     ld.add_action(static_tf_pub_scan_to_footprint_cmd)
     ld.add_action(static_tf_pub_base_link_to_base_scan_cmd)

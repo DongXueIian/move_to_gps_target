@@ -20,12 +20,14 @@ apmControllernNameSpace='/apm_drone'
 hasClock=False
 simClock=None
 
+mavRate=40
+
 TAKE_OFF_ALTITUDE=1.0
 
 class apmControllernNode(Node):
     def __init__(self):
         super().__init__('apm_controller_node')
-        global hasClock,simClock
+        global hasClock,simClock,mavRate
         for topic_name, topic_type in self.get_topic_names_and_types():
             if topic_name == '/clock':
                 hasClock = True
@@ -40,8 +42,7 @@ class apmControllernNode(Node):
         self.vehicle.mode = VehicleMode('GUIDED')
         # self.vehicle.parameters['ATTITUDE_FREQ'] = 20 
         # self.vehicle.set_stream_rate(1, 20)
-        rate=20
-        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,rate, 1)
+        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,mavRate, 1)
         self.gyro_x=0.0
         self.gyro_y=0.0
         self.gyro_z=0.0
@@ -108,6 +109,7 @@ class apmControllernNode(Node):
         self.update_state_40hz_timer = self.create_timer(0.025, self.update_state_40hz)
         self.update_state_10hz_timer = self.create_timer(0.1, self.update_state_10hz)
         self.update_state_5hz_timer = self.create_timer(0.2, self.update_state_5hz)
+        self.update_state_1hz_timer = self.create_timer(1.0, self.update_state_1hz)
         # 循环动作
         self.loop_action_10hz_timer= self.create_timer(0.1, self.loop_action_10hz)
 
@@ -121,8 +123,9 @@ class apmControllernNode(Node):
 
     def tryConnect(self,ipAddress):
         # print('Connecting '+ipAddress)
+        global mavRate
         self.get_logger().info('Connecting '+ipAddress)
-        vehicle = connect(ipAddress, wait_ready=True,rate=20, baud=921600)
+        vehicle = connect(ipAddress, wait_ready=True,rate=mavRate, baud=921600)
         # print('successfully connect to '+ipAddress)
         self.get_logger().info('successfully connect to '+ipAddress)
         lastTime=time.time()
@@ -214,10 +217,11 @@ class apmControllernNode(Node):
         if self.control_mode=='GUIDED' and self.vehicle.armed:
             self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
             self.high_permission_velocity_call=True
+    def update_state_1hz(self):
+        global mavRate
+        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,mavRate, 1)
+        pass
     def update_state_5hz(self):
-        # self.vehicle.parameters['ATTITUDE_FREQ'] = 20 
-        rate=20
-        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,rate, 1)
         pass
     def loop_action_10hz(self):
         # print("Local Location: %s" % self.vehicle.location.local_frame)

@@ -4,31 +4,15 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from rcl_interfaces.msg import ParameterType  # 导入rcl_interfaces.msg中的ParameterType消息
 from rcl_interfaces.srv import SetParameters  # 导入rcl_interfaces.srv中的SetParameters服务
+from rcl_interfaces.srv import GetParameters
 from rclpy.parameter import Parameter
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
 import threading
 from rclpy.executors import SingleThreadedExecutor
 range_degrees = 12
+setTwirlingCriticEnabled=False
 isTwirlingCriticEnabled=False
-lastIsTwirlingCriticEnabled=False
 apmControllernNameSpace='/apm_drone'
-# class setNavParams(Node):
-#     def __init__(self):
-#         super().__init__('set_nav_params')
-#         self.set_params = self.create_client(SetParameters, "/controller_server/set_parameters")
-#         self.set_params.wait_for_service(1)
-#         self.create_timer(0.1, self.get_params)
-#     def get_params(self):
-#         global isTwirlingCriticEnabled,lastIsTwirlingCriticEnabled
-#         if lastIsTwirlingCriticEnabled!=isTwirlingCriticEnabled:
-#             lastIsTwirlingCriticEnabled=isTwirlingCriticEnabled
-#             # 创建设置参数请求
-#             req = SetParameters.Request()
-#             # 设置参数数据
-#             req.parameters = [Parameter(name="FollowPath.TwirlingCritic.enabled",value=ParameterValue(bool_value=isTwirlingCriticEnabled,type=ParameterType.PARAMETER_BOOL))]
-#             # 发送请求
-#             self.set_params.call_async(req)
-#             print('send---'+str(isTwirlingCriticEnabled))
 class CmdVelModifier(Node):
     def __init__(self):
         super().__init__('cmd_vel_modifier')
@@ -61,19 +45,38 @@ class CmdVelModifier(Node):
 
         self.set_params = self.create_client(SetParameters, "/controller_server/set_parameters")
         self.set_params.wait_for_service(1)
-        self.create_timer(0.1, self.get_params)
+        self.get_params = self.create_client(GetParameters, "/controller_server/get_parameters")
+        self.get_params.wait_for_service(1)
+        self.create_timer(0.1, self.my_set_params)
+        self.param_timer = self.create_timer(0.1, self.get_twirling_critic_enabled)
 
-    def get_params(self):
-        global isTwirlingCriticEnabled,lastIsTwirlingCriticEnabled
-        if lastIsTwirlingCriticEnabled!=isTwirlingCriticEnabled:
-            lastIsTwirlingCriticEnabled=isTwirlingCriticEnabled
+    def get_twirling_critic_enabled(self):
+        request = GetParameters.Request()
+        request.names = ['FollowPath.TwirlingCritic.enabled']
+        future = self.get_params.call_async(request)
+        future.add_done_callback(self.param_value_callback)
+    def param_value_callback(self, future):
+        global isTwirlingCriticEnabled
+        result = future.result()
+        if result is not None:
+            values = result.values
+            if values and values[0].type == ParameterType.PARAMETER_BOOL:
+                isTwirlingCriticEnabled = values[0].bool_value
+                # self.get_logger().info(f'周期性获取 TwirlingCritic.enabled 参数值: {isTwirlingCriticEnabled}')
+            else:
+                self.get_logger().info('参数值不存在或类型不匹配')
+        else:
+            self.get_logger().error('获取参数失败')
+    def my_set_params(self):
+        global setTwirlingCriticEnabled,isTwirlingCriticEnabled
+        if isTwirlingCriticEnabled!=setTwirlingCriticEnabled:
             # 创建设置参数请求
             req = SetParameters.Request()
             # 设置参数数据
-            req.parameters = [Parameter(name="FollowPath.TwirlingCritic.enabled",value=ParameterValue(bool_value=isTwirlingCriticEnabled,type=ParameterType.PARAMETER_BOOL))]
+            req.parameters = [Parameter(name="FollowPath.TwirlingCritic.enabled",value=ParameterValue(bool_value=setTwirlingCriticEnabled,type=ParameterType.PARAMETER_BOOL))]
             # 发送请求
             self.set_params.call_async(req)
-            self.get_logger().info('send---'+str(isTwirlingCriticEnabled))
+            self.get_logger().info('send---'+str(setTwirlingCriticEnabled))
 
 
     def current_cmd_vel_callback(self,msg):
@@ -86,7 +89,7 @@ class CmdVelModifier(Node):
     def scan_callback(self, msg):
         self.laser_data = msg
     def timer_callback(self):
-        global range_degrees,isTwirlingCriticEnabled
+        global range_degrees,setTwirlingCriticEnabled
         if self.laser_data:
             # 计算雷达数据的正前方48度范围
             num_points = len(self.laser_data.ranges)
@@ -106,11 +109,11 @@ class CmdVelModifier(Node):
                 # 查找正前方最近的障碍物距离
                 min_distance = min((distance for distance in forward_ranges if distance > 0), default=float('10'))
                 if self.current_cmd_vel_data.linear.x>1.5:
-                    isTwirlingCriticEnabled=True
+                    setTwirlingCriticEnabled=True
                     range_degrees=5
                 else:
                     rclpy.parameter.Parameter('/controller_server/FollowPath.TwirlingCritic.enabled', rclpy.Parameter.Type.BOOL, False) 
-                    isTwirlingCriticEnabled=False
+                    setTwirlingCriticEnabled=False
                     range_degrees=12
                 # 根据距离设置速度限制
                 if min_distance < 1.5:
@@ -146,20 +149,6 @@ def node_spin(node):
         executor.shutdown()
         node.destroy_node()
 def main():
-    # rclpy.init(args=args)
-    # try:
-    #     cmd_vel_modifier = CmdVelModifier()
-    #     # set_nav_params = setNavParams()
-    #     # 为每个节点创建独立线程
-    #     cmd_vel_modifier_thread = threading.Thread(target=node_spin, args=(cmd_vel_modifier,))
-    #     # set_nav_params_thread = threading.Thread(target=node_spin, args=(set_nav_params,))
-    #     cmd_vel_modifier_thread.start()
-    #     # set_nav_params_thread.start()
-    #     cmd_vel_modifier_thread.join()
-    #     # set_nav_params_thread.join()
-    # finally:
-    #     rclpy.shutdown()
-
     # 初始化rclpy库
     rclpy.init()
     cmd_vel_modifier = CmdVelModifier()
