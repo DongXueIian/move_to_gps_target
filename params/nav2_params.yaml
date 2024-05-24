@@ -6,6 +6,9 @@ bt_navigator:  # 行为树导航器的配置开始
     odom_topic: /odom  # 里程计话题
     bt_loop_duration: 50  # 行为树循环的持续时间（以毫秒为单位）
     default_server_timeout: 20  # 默认的服务器超时时间（以秒为单位）
+    default_nav_to_pose_bt_xml: $(find-pkg-share move_to_gps_target)/behavior_tree/my_nav_to_pose_bt.xml
+    # default_nav_to_pose_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
+    default_nav_through_poses_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
     # default_nav_to_pose_bt_xml: "package://myTestPockage/behavior_trees/my_custom_nav_to_pose_bt.xml"
     #'default_nav_through_poses_bt_xml' 和 'default_nav_to_pose_bt_xml' 使用默认值：
     #nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml 和 
@@ -77,7 +80,7 @@ controller_server:
       plugin: "nav2_mppi_controller::MPPIController"  # 使用MPPIController插件
       time_steps: 20  # 时间步数
       model_dt: 0.03  # 模型时间步长
-      batch_size: 1600  # 批处理大小
+      batch_size: 2000  # 批处理大小
       vx_std: 1.0  # 前向速度标准差
       vy_std: 0.10  # 侧向速度标准差
       wz_std: 0.30  # 角速度标准差
@@ -186,7 +189,7 @@ local_costmap:  # 局部代价地图的配置开始
   local_costmap:
     ros__parameters:
       update_frequency: 70.0  # 代价地图更新频率，单位为Hz（每秒更新次数）
-      publish_frequency: 70.0  # 代价地图发布频率，单位为Hz
+      publish_frequency: 4.0  # 代价地图发布频率，单位为Hz
       global_frame: odom  # 全局参考框架，通常是里程计odom
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）
@@ -231,7 +234,7 @@ global_costmap:  # 全局代价地图配置开始
   global_costmap:
     ros__parameters:
       update_frequency: 2.0 # 代价地图更新频率，单位为Hz（每秒更新次数）
-      publish_frequency: 2.0  # 代价地图发布频率，单位为Hz
+      publish_frequency: 1.0  # 代价地图发布频率，单位为Hz
       global_frame: map  # 全局参考框架，通常是地图
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）

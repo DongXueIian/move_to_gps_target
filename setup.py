@@ -18,6 +18,7 @@ setup(
         ('share/' + package_name+'/maps', ['maps/empty_world.yaml']),
         ('share/' + package_name+'/rviz2', ['rviz2/test_nav2_apm.rviz']),
         ('share/' + package_name+'/rviz2', ['rviz2/test_nav2_apm_mppi.rviz']),
+        ('share/' + package_name+'/behavior_tree', ['behavior_tree/my_nav_to_pose_bt.xml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
