@@ -5,7 +5,7 @@ bt_navigator:  # 行为树导航器的配置开始
     robot_base_frame: base_link  # 机器人基础框架ID
     odom_topic: /odom  # 里程计话题
     bt_loop_duration: 50  # 行为树循环的持续时间（以毫秒为单位）
-    default_server_timeout: 20  # 默认的服务器超时时间（以秒为单位）
+    default_server_timeout: 4  # 默认的服务器超时时间（以秒为单位）
     default_nav_to_pose_bt_xml: $(find-pkg-share move_to_gps_target)/behavior_tree/my_nav_to_pose_bt.xml
     # default_nav_to_pose_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
     default_nav_through_poses_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml
@@ -75,26 +75,26 @@ bt_navigator_navigate_to_pose_rclcpp_node:  # 导航器到姿势节点配置
 # MPPI控制器服务器配置
 controller_server:
   ros__parameters:
-    controller_frequency: 40.0  # 控制器频率为每秒30次
+    controller_frequency: 15.0  # 控制器频率为每秒30次
     FollowPath:  # FollowPath插件配置
       plugin: "nav2_mppi_controller::MPPIController"  # 使用MPPIController插件
-      time_steps: 20  # 时间步数
-      model_dt: 0.03  # 模型时间步长
-      batch_size: 2000  # 批处理大小
-      vx_std: 1.0  # 前向速度标准差
+      time_steps: 10  # 时间步数
+      model_dt: 0.10  # 模型时间步长
+      batch_size: 1000  # 批处理大小
+      vx_std: 0.25  # 前向速度标准差
       vy_std: 0.10  # 侧向速度标准差
-      wz_std: 0.30  # 角速度标准差
-      vx_max: 10.0  # 最大前向速度
+      wz_std: 0.10  # 角速度标准差
+      vx_max: 1.0  # 最大前向速度
       vx_min: -0.2  # 最小前向速度
-      vy_max: 3.2  # 最大侧向速度
-      wz_max: 0.90  # 最大角速度
+      vy_max: 1.0  # 最大侧向速度
+      wz_max: 0.50  # 最大角速度
       iteration_count: 1  # 迭代次数
-      prune_distance: 5.0  # 修剪距离
+      prune_distance: 1.0  # 修剪距离
       transform_tolerance: 0.1  # 变换容差
       temperature: 0.3  # 温度参数
       gamma: 0.015  # Gamma值
       motion_model: "Omni"  # 运动模型为Differential Drive
-      visualize: true  # 是否可视化
+      visualize: false  # 是否可视化
       reset_period: 1.0  # 重置周期（仅在Humble中使用）
       regenerate_noises: false  # 是否重新生成噪声
       TrajectoryVisualizer:  # 轨迹可视化器配置
@@ -188,14 +188,14 @@ controller_server:
 local_costmap:  # 局部代价地图的配置开始
   local_costmap:
     ros__parameters:
-      update_frequency: 70.0  # 代价地图更新频率，单位为Hz（每秒更新次数）
-      publish_frequency: 4.0  # 代价地图发布频率，单位为Hz
+      update_frequency: 15.0  # 代价地图更新频率，单位为Hz（每秒更新次数）
+      publish_frequency: 12.0  # 代价地图发布频率，单位为Hz
       global_frame: odom  # 全局参考框架，通常是里程计odom
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）
       rolling_window: true  # 是否使用滚动窗口，对于局部代价地图通常设置为true
-      width: 10  # 代价地图宽度，单位为米
-      height: 10  # 代价地图高度，单位为米
+      width: 6  # 代价地图宽度，单位为米
+      height: 6  # 代价地图高度，单位为米
 
       resolution: 0.2  # 代价地图分辨率，单位为米/像素
 
@@ -233,13 +233,13 @@ local_costmap:  # 局部代价地图的配置开始
 global_costmap:  # 全局代价地图配置开始
   global_costmap:
     ros__parameters:
-      update_frequency: 2.0 # 代价地图更新频率，单位为Hz（每秒更新次数）
+      update_frequency: 1.0 # 代价地图更新频率，单位为Hz（每秒更新次数）
       publish_frequency: 1.0  # 代价地图发布频率，单位为Hz
       global_frame: map  # 全局参考框架，通常是地图
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）
       robot_radius: 0.5  # 机器人半径，用于计算碰撞
-      resolution: 0.2  # 代价地图分辨率，单位为米/像素
+      resolution: 0.4  # 代价地图分辨率，单位为米/像素
       track_unknown_space: true  # 是否追踪未知空间
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]  # 使用的插件列表
       obstacle_layer:  # 障碍物层配置
@@ -253,9 +253,9 @@ global_costmap:  # 全局代价地图配置开始
           clearing: True  # 是否清除障碍
           marking: True  # 是否标记障碍
           data_type: "LaserScan"  # 数据类型
-          raytrace_max_range: 20.0  # 射线追踪最大范围
+          raytrace_max_range: 10.0  # 射线追踪最大范围
           raytrace_min_range: 0.0  # 射线追踪最小范围
-          obstacle_max_range: 20.0  # 障碍物最大范围
+          obstacle_max_range: 10.0  # 障碍物最大范围
           obstacle_min_range: 0.0  # 障碍物最小范围
       static_layer:  # 静态层配置
         plugin: "nav2_costmap_2d::StaticLayer"  # 使用StaticLayer插件
@@ -286,12 +286,12 @@ map_saver:  # 地图保存器配置
 
 planner_server:  # 规划器服务器配置
   ros__parameters:  # ROS参数
-    expected_planner_frequency: 1.0  # 预期规划器频率（Hz）
+    expected_planner_frequency: 4.0  # 预期规划器频率（Hz）
     use_sim_time: True  # 使用仿真时间
     planner_plugins: ["GridBased"]  # 规划器插件列表（网格型）
     GridBased:  # 网格型规划器配置
       plugin: "nav2_navfn_planner/NavfnPlanner"  # 插件名称
-      tolerance: 1.0  # 容差
+      tolerance: 0.5  # 容差
       use_astar: false  # 使用A*算法（否）
       allow_unknown: true  # 允许未知区域
       cost_factor: 0.55
@@ -333,13 +333,13 @@ smoother_server:  # 平滑器服务器配置
       plugin: "nav2_smoother::SimpleSmoother"  # 插件名称
       tolerance: 1.0e-10  # 容差
       max_its: 1000  # 最大迭代次数
-      do_refinement: True  # 进行细化
+      do_refinement: False  # 进行细化
 
 behavior_server:  # 行为服务器配置
   ros__parameters:  # ROS参数
     costmap_topic: local_costmap/costmap_raw  # 成本地图话题
     footprint_topic: local_costmap/published_footprint  # 足迹话题
-    cycle_frequency: 20.0  # 循环频率（Hz）
+    cycle_frequency: 10.0  # 循环频率（Hz）
     behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]  # 行为插件列表
     spin:  # 自旋行为配置
       plugin: "nav2_behaviors/Spin"  # 插件名称
@@ -383,8 +383,8 @@ velocity_smoother:  # 速度平滑器配置
     feedback: "OPEN_LOOP"  # 反馈类型（开环）
     max_velocity: [10.0, 10.0, 2.0]  # 最大速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
     min_velocity: [-10.6, -10.0, -1.0]  # 最小速度限制 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]
-    max_accel: [0.8, 1.0, 2.0]  # 最大加速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
-    max_decel: [-10.2, -10.2, -0.8]  # 最大减速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
+    max_accel: [0.1, 1.0, 0.8]  # 最大加速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
+    max_decel: [-0.4, -1.2, -0.8]  # 最大减速度 [线加速度(m/s^2), 旋转加速度(rad/s^2), 纵向加速度(m/s^2)]
     odom_topic: "odom"  # 里程计话题
     odom_duration: 0.1  # 里程计时长（秒）
     deadband_velocity: [0.0, 0.0, 0.0]  # 死区速度 [线速度(m/s), 旋转速度(rad/s), 纵向速度(m/s)]

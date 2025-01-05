@@ -11,7 +11,7 @@ class MySimpleNav2Command(Node):
         # 确保nav2已经完全启动
         time.sleep(10)
         # 创建一个定时器，定期清理全局和局部代价地图
-        self.timer = self.create_timer(timeLocal, self.nav2.clearLocalCostmap)
+        # self.timer = self.create_timer(timeLocal, self.nav2.clearLocalCostmap)
         self.timer = self.create_timer(timeGlobal, self.nav2.clearGlobalCostmap)
 
 
@@ -19,7 +19,7 @@ class MySimpleNav2Command(Node):
 def main():
     # 初始化rclpy库
     rclpy.init()
-    my_nav_command = MySimpleNav2Command(1.0,5.0)
+    my_nav_command = MySimpleNav2Command(2.0,10.0)
     # 让ROS 2节点运行起来，监听和处理回调函数，直到节点被显式地关闭
     rclpy.spin(my_nav_command)
     # 销毁节点，进行清理

@@ -11,6 +11,9 @@ import math
 from geometry_msgs.msg import PoseStamped
 from rosgraph_msgs.msg import Clock 
 from std_msgs.msg import Header
+import psutil
+import os
+import argparse
 
 # connectUrl='127.0.0.1:14550'
 connectUrl='10.10.10.20:14550'
@@ -20,14 +23,22 @@ apmControllernNameSpace='/apm_drone'
 hasClock=False
 simClock=None
 
-mavRate=40
+cpu_core_msg=''
+cpu_core_error_msg=''
 
 TAKE_OFF_ALTITUDE=1.0
 
 class apmControllernNode(Node):
     def __init__(self):
         super().__init__('apm_controller_node')
-        global hasClock,simClock,mavRate
+
+        global cpu_core_msg,cpu_core_error_msg
+        if(cpu_core_msg != ''):
+            self.get_logger().info(cpu_core_msg)
+        else:
+            self.get_logger().error(cpu_core_error_msg)
+
+        global hasClock,simClock
         for topic_name, topic_type in self.get_topic_names_and_types():
             if topic_name == '/clock':
                 hasClock = True
@@ -36,13 +47,10 @@ class apmControllernNode(Node):
         global connectUrl
         # self.ros2_mode=''
 
-        super().__init__('apm_controller_node')
         # 连接到无人机
         self.vehicle = self.tryConnect(connectUrl)
         self.vehicle.mode = VehicleMode('GUIDED')
-        # self.vehicle.parameters['ATTITUDE_FREQ'] = 20 
-        # self.vehicle.set_stream_rate(1, 20)
-        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,mavRate, 1)
+
         self.gyro_x=0.0
         self.gyro_y=0.0
         self.gyro_z=0.0
@@ -106,10 +114,8 @@ class apmControllernNode(Node):
             apmControllernNameSpace+'/current_local_location',
             10)
         # 定时发布无人机状态
-        self.update_state_40hz_timer = self.create_timer(0.025, self.update_state_40hz)
         self.update_state_10hz_timer = self.create_timer(0.1, self.update_state_10hz)
         self.update_state_5hz_timer = self.create_timer(0.2, self.update_state_5hz)
-        self.update_state_1hz_timer = self.create_timer(1.0, self.update_state_1hz)
         # 循环动作
         self.loop_action_10hz_timer= self.create_timer(0.1, self.loop_action_10hz)
 
@@ -123,9 +129,8 @@ class apmControllernNode(Node):
 
     def tryConnect(self,ipAddress):
         # print('Connecting '+ipAddress)
-        global mavRate
         self.get_logger().info('Connecting '+ipAddress)
-        vehicle = connect(ipAddress, wait_ready=True,rate=mavRate, baud=921600)
+        vehicle = connect(ipAddress, wait_ready=True, baud=921600)
         # print('successfully connect to '+ipAddress)
         self.get_logger().info('successfully connect to '+ipAddress)
         lastTime=time.time()
@@ -205,31 +210,75 @@ class apmControllernNode(Node):
                     self.control_mode='GUIDED'
                 else:
                     self.vehicle.simple_takeoff(TAKE_OFF_ALTITUDE)
+
     def velocity_callback(self, msg):
         # 设置无人机的目标速度
         if self.control_mode=='GUIDED' and self.vehicle.armed and not self.high_permission_velocity_call:
             self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
+
     def sim_clock_callback(self,msg):
         global simClock
         simClock=msg
+
     def high_permission_velocity_callback(self, msg):
         # 设置无人机的目标速度
         if self.control_mode=='GUIDED' and self.vehicle.armed:
             self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
             self.high_permission_velocity_call=True
-    def update_state_1hz(self):
-        global mavRate
-        self.vehicle._master.mav.request_data_stream_send(0, 0, mavutil.mavlink.MAV_DATA_STREAM_ALL,mavRate, 1)
-        pass
+
     def update_state_5hz(self):
-        pass
+
+        # 发布无人机的当前飞行模式
+        mode_msg = String(data=str(self.control_mode))
+        self.publisher_current_mode.publish(mode_msg)
+
+        # 发布无人机的当前状态
+        mode_state_msg = String(data="armed" if self.vehicle.armed else "disarmed")
+        self.publisher_current_mode_state.publish(mode_state_msg)
+
+        # 发布无人机的当前姿态（Roll, Pitch, Yaw）
+        attitude_msg = String(data=f"Roll: {self.vehicle.attitude.roll}, Pitch: {self.vehicle.attitude.pitch}, Yaw: {self.vehicle.attitude.yaw}")
+        self.publisher_current_attitude.publish(attitude_msg)
+
+        # 发布无人机的GPS数据
+        gps_msg = NavSatFix()
+        gps_msg.latitude = self.vehicle.location.global_frame.lat
+        gps_msg.longitude = self.vehicle.location.global_frame.lon
+        gps_msg.altitude = self.vehicle.location.global_frame.alt
+        self.publisher_gps.publish(gps_msg)
+
+        # 发布无人机的电池状态
+        battery_msg = BatteryState()
+        battery_msg.voltage = self.vehicle.battery.voltage
+        battery_msg.current = 0.0
+        battery_msg.percentage =  100.0  # Assuming 'level' is given as a percentage
+        self.publisher_battery.publish(battery_msg)
+        # print(self.vehicle.battery)
+
+        local_location_msg = PoseStamped()
+        if hasClock and simClock!=None:
+            # print(simClock)
+            local_location_msg.header = Header()
+            local_location_msg.header.stamp = simClock.clock
+        else:
+            local_location_msg.header.stamp = self.get_clock().now().to_msg()
+        # print(local_location_msg.header.stamp)
+        local_location_msg.header.frame_id = 'local_location'  # 假设坐标系为map
+        local_location_msg.pose.position.x = self.vehicle.location.local_frame.north  # 替换为实际的x坐标
+        local_location_msg.pose.position.y = self.vehicle.location.local_frame.east  # 替换为实际的y坐标
+        local_location_msg.pose.position.z = self.vehicle.location.local_frame.down  # 替换为实际的z坐标
+
+        self.publisher_local_location.publish(local_location_msg)
+        # self.get_logger().info('发布本地位置信息：%s' % local_location_msg.pose.position)
+
     def loop_action_10hz(self):
         # print("Local Location: %s" % self.vehicle.location.local_frame)
-        self.last_call_loop_action_10hz = self.monitor_loop_time(self.last_call_loop_action_10hz, 0.1)
+        # self.last_call_loop_action_10hz = self.monitor_loop_time(self.last_call_loop_action_10hz, 0.1)
         self.action_count=self.action_count+1
         if self.high_permission_velocity_call and self.action_count % 10 == 0:
             self.high_permission_velocity_call=False
-    def update_state_40hz(self):
+
+    def update_state_10hz(self):
         # 发布无人机的当前速度
         # 使用当前的偏航角来旋转速度向量
         # 假设获取速度和姿态
@@ -249,52 +298,6 @@ class apmControllernNode(Node):
         # print(velocity_msg.linear)
         self.publisher_current_velocity.publish(velocity_msg)
 
-        # 发布无人机的当前姿态（Roll, Pitch, Yaw）
-        attitude_msg = String(data=f"Roll: {self.vehicle.attitude.roll}, Pitch: {self.vehicle.attitude.pitch}, Yaw: {self.vehicle.attitude.yaw}")
-        self.publisher_current_attitude.publish(attitude_msg)
-
-        local_location_msg = PoseStamped()
-        if hasClock and simClock!=None:
-            # print(simClock)
-            local_location_msg.header = Header()
-            local_location_msg.header.stamp = simClock.clock
-        else:
-            local_location_msg.header.stamp = self.get_clock().now().to_msg()
-        # print(local_location_msg.header.stamp)
-        local_location_msg.header.frame_id = 'local_location'  # 假设坐标系为map
-        local_location_msg.pose.position.x = self.vehicle.location.local_frame.north  # 替换为实际的x坐标
-        local_location_msg.pose.position.y = self.vehicle.location.local_frame.east  # 替换为实际的y坐标
-        local_location_msg.pose.position.z = self.vehicle.location.local_frame.down  # 替换为实际的z坐标
-
-        self.publisher_local_location.publish(local_location_msg)
-    def update_state_10hz(self):
-        # 发布无人机的当前飞行模式
-        mode_msg = String(data=str(self.control_mode))
-        self.publisher_current_mode.publish(mode_msg)
-
-        # 发布无人机的当前状态
-        mode_state_msg = String(data="armed" if self.vehicle.armed else "disarmed")
-        self.publisher_current_mode_state.publish(mode_state_msg)
-
-
-        # 发布无人机的GPS数据
-        gps_msg = NavSatFix()
-        gps_msg.latitude = self.vehicle.location.global_frame.lat
-        gps_msg.longitude = self.vehicle.location.global_frame.lon
-        gps_msg.altitude = self.vehicle.location.global_frame.alt
-        self.publisher_gps.publish(gps_msg)
-
-        # 发布无人机的电池状态
-        battery_msg = BatteryState()
-        battery_msg.voltage = self.vehicle.battery.voltage
-        battery_msg.current = 0.0
-        battery_msg.percentage =  100.0  # Assuming 'level' is given as a percentage
-        self.publisher_battery.publish(battery_msg)
-        # print(self.vehicle.battery)
-
-
-        # self.get_logger().info('发布本地位置信息：%s' % local_location_msg.pose.position)
-
     # 定义一个回调函数来处理 RAW_IMU 消息
     def listen_raw_imu(self, vehicle, name, message):
         if message.get_type() == 'RAW_IMU':
@@ -303,8 +306,6 @@ class apmControllernNode(Node):
             self.gyro_z = -message.zgyro/1000
             # print(f"Gyro X: {gyro_x}, Gyro Y: {gyro_y}, Gyro Z: {gyro_z}")
 
-
-
     def destroy_node(self):
         # 添加您希望在节点销毁时执行的任务
         self.get_logger().info('Shutting down: closing vehicle connection and cleaning up resources')
@@ -312,12 +313,38 @@ class apmControllernNode(Node):
             self.vehicle.close() 
         # 这里可以添加其他清理资源的代码
         super().destroy_node()
+
 def main(args=None):
-    rclpy.init(args=args)
+    # 在rclpy初始化之前解析命令行参数
+    parser = argparse.ArgumentParser(description="APM Controller Node")
+    parser.add_argument('--cpu', type=int, default=None, help="CPU core to bind to")
+    parsed_args, unknown_args = parser.parse_known_args(args)  # 解析CPU参数
+
+    # 只处理CPU核心绑定参数，其他参数传递给rclpy
+    global cpu_core_msg,cpu_core_error_msg
+    if parsed_args.cpu is not None:
+        bind_to_cpu(parsed_args.cpu)
+    else:
+        cpu_core_error_msg='parsed_args.cpu is None'
+
+    # 初始化rclpy并传递未被argparse处理的参数
+    rclpy.init(args=unknown_args)
+
     node = apmControllernNode()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
+
+def bind_to_cpu(cpu_core):
+    global cpu_core_msg,cpu_core_error_msg
+    try:
+        p = psutil.Process()  # 获取当前进程
+        p.cpu_affinity([cpu_core])  # 设置进程的CPU核心亲和力
+        cpu_core_msg=f'Process is bound to CPU core {cpu_core}'
+        print(f'Process is bound to CPU core {cpu_core}')
+    except Exception as e:
+        cpu_core_error_msg=f'Failed to set CPU affinity: {e}'
+        print(f'Failed to set CPU affinity: {e}')
 
 if __name__ == '__main__':
     main()

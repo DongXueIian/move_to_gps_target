@@ -6,7 +6,8 @@ from tf2_ros import TransformBroadcaster
 import math
 from rosgraph_msgs.msg import Clock 
 from std_msgs.msg import Header
-
+from sensor_msgs.msg import NavSatFix
+import utm
 apmControllernNameSpace='/apm_drone'
 
 hasClock=False
@@ -38,11 +39,33 @@ class TFConverterNode(Node):
                 '/clock',
                 self.sim_clock_callback,
                 10)
+        self.subscription_target_gps = self.create_subscription(
+            NavSatFix,
+            apmControllernNameSpace+'/target_gps_location',
+            self.target_gps_callback,
+            10
+        )
+        self.subscription_target_gps = self.create_subscription(
+            NavSatFix,
+            apmControllernNameSpace+'/home_gps_location',
+            self.home_gps_callback,
+            10
+        )
+        self.goal_publisher = self.create_publisher(
+            PoseStamped, 
+            '/goal_pose', 
+            10
+        )
+
         self.odom_frame_id = 'odom'
         self.base_link_frame_id = 'base_link'
         self.local_pose = None
         self.attitude = None
-        self.loop_action_20hz_timer= self.create_timer(0.04, self.update_tf)
+        self.target_gps=None
+        self.home_gps=None
+        self.gps_changed=5
+        self.loop_action_40hz_timer= self.create_timer(0.025, self.update_tf)
+        # self.loop_action_1hz_timer= self.create_timer(1.0, self.update_1hz)
     def local_location_callback(self, msg):
         self.local_pose = msg.pose
         # print(str(self.get_clock().now().to_msg())+"---"+str(msg.pose))
@@ -52,6 +75,20 @@ class TFConverterNode(Node):
         simClock=msg
     def attitude_callback(self, msg):
         self.attitude = msg.data
+
+    def target_gps_callback(self, msg):
+        print('target_gps_callback')
+        if self.target_gps==None or (self.target_gps.latitude!=msg.latitude and self.target_gps.longitude!=msg.longitude):
+            self.gps_changed=0
+            self.target_gps=msg
+        # print('target_gps    '+str(msg))
+
+    def home_gps_callback(self, msg):
+        print('home_gps_callback')
+        if self.home_gps==None or (self.home_gps.latitude!=msg.latitude and self.home_gps.longitude!=msg.longitude):
+            self.home_gps=msg
+            self.gps_changed=0
+        # print('home_gps    '+str(msg))
 
     def update_tf(self):
         if self.local_pose is not None and self.attitude is not None:
@@ -87,6 +124,49 @@ class TFConverterNode(Node):
             self.tf_broadcaster.sendTransform(t)
 
             # print(str(t.transform)+"---"+str(self.get_clock().now().to_msg()))
+
+    def update_1hz(self):
+        # print('update_1hz')
+        if self.gps_changed<5 and self.target_gps!=None and self.home_gps!=None:
+            # print('转换起飞点和目标点到 UTM 坐标')
+            # 转换起飞点和目标点到 UTM 坐标
+            home_utm = utm.from_latlon(self.home_gps.latitude, self.home_gps.longitude)
+            target_utm = utm.from_latlon(self.target_gps.latitude, self.target_gps.longitude)
+            
+            # 创建和发送 TF 消息
+            transform = TransformStamped()
+            transform.header.stamp = self.get_clock().now().to_msg()
+            transform.header.frame_id = 'map'
+            transform.child_frame_id = 'target_location'
+            transform.transform.translation.x = target_utm[0] - home_utm[0]
+            transform.transform.translation.y = target_utm[1] - home_utm[1]
+            transform.transform.translation.z = 0.0  # 假设高度变化不考虑
+            transform.transform.rotation.x = 0.0
+            transform.transform.rotation.y = 0.0
+            transform.transform.rotation.z = 0.0
+            transform.transform.rotation.w = 1.0
+            self.tf_broadcaster.sendTransform(transform)
+
+            # 创建并发布 PoseStamped 消息到 /goal_pose
+            goal_msg = PoseStamped()
+            goal_msg.header.stamp = self.get_clock().now().to_msg()
+            goal_msg.header.frame_id = 'map'
+            goal_msg.pose.position.x = transform.transform.translation.x
+            goal_msg.pose.position.y = transform.transform.translation.y
+            goal_msg.pose.position.z = 0.0
+            goal_msg.pose.orientation.x = 0.0
+            goal_msg.pose.orientation.y = 0.0
+            goal_msg.pose.orientation.z = 0.0
+            goal_msg.pose.orientation.w = 1.0
+
+            self.goal_publisher.publish(goal_msg)
+            self.get_logger().info(f'Published goal pose: x={goal_msg.pose.position.x}, y={goal_msg.pose.position.y}')
+
+            self.gps_changed=self.gps_changed+1
+
+
+
+
 
     def calculate_quaternion(self, roll, pitch, yaw):
         cy = math.cos(yaw * 0.5)

@@ -166,6 +166,29 @@ def generate_launch_description():
                           'use_composition': use_composition,
                           'use_respawn': use_respawn}.items())
     
+    # 定义多静态变换
+    static_transforms = [
+        "0 0 0 0 0 0 map odom",
+        "0 0 0 0 0 0 base_scan base_footprint",
+        "0 0 0 0 0 0 base_link base_scan"
+    ]
+
+    # 自定义多静态变换发布节点
+    multi_static_tf_pub_cmd = Node(
+        package='move_to_gps_target',
+        executable='static_tf_broadcaster',
+        name='multi_static_tf_broadcaster',
+        output='screen',
+        arguments=['--cpu', '4'],  # 传递一个自定义参数来指定CPU核心（核心1）
+        parameters=[
+            {
+                'use_sim_time': use_sim_time,
+                'transforms': static_transforms
+            }
+        ],
+        condition=IfCondition(PythonExpression(['not ', slam]))  # 仅在 slam 为 False 时启动
+    )
+
     # 手动广播静态的map->odom转换
     static_tf_pub_map_to_odom_cmd = Node(
         package='tf2_ros',
@@ -206,7 +229,6 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
-
     nav2_setup_cmd=IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(launch_dir, 'navigation_launch.py')),
         launch_arguments={'namespace': namespace,
@@ -229,6 +251,7 @@ def generate_launch_description():
                 arguments=['--ros-args', '--log-level', log_level],
                 remappings=remappings,
                 output='screen',
+                prefix=['taskset -c 6,7']  # 绑定到 CPU6 和 CPU7
             ),
 
             LoadComposableNodes(
@@ -318,10 +341,10 @@ def generate_launch_description():
             package='move_to_gps_target',
             executable='apm_controller_node',
             output='screen',
-            # arguments=['time', '1.0']
+            arguments=['--cpu', '5'],  # 传递一个自定义参数来指定CPU核心（核心1）
         )
-
-    apm_gps_tf_node_setup_cmd=Node(
+    
+    apm_tf_node_setup_cmd=Node(
             package='move_to_gps_target',
             executable='apm_gps_tf_node',
             output='screen',
@@ -334,6 +357,14 @@ def generate_launch_description():
             output='screen',
         )
 
+
+    not_height_tf_transform_cmd=Node(
+            package='move_to_gps_target',
+            executable='gztf_filter_not_height',
+            name='not_height_tf_transform',
+            output='screen',
+            respawn=False,
+    )
 
 
     # Create the launch description and populate
@@ -357,15 +388,18 @@ def generate_launch_description():
     # Add any conditioned actions
 
     ld.add_action(apm_controller_node_setup_cmd)
+    ld.add_action(multi_static_tf_pub_cmd)
+    # ld.add_action(static_tf_pub_map_to_odom_cmd)
+    # ld.add_action(static_tf_pub_scan_to_footprint_cmd)
+    # ld.add_action(static_tf_pub_base_link_to_base_scan_cmd)
 
-    ld.add_action(apm_gps_tf_node_setup_cmd)
-    ld.add_action(static_tf_pub_map_to_odom_cmd)
-    ld.add_action(static_tf_pub_scan_to_footprint_cmd)
-    ld.add_action(static_tf_pub_base_link_to_base_scan_cmd)
+    ld.add_action(apm_tf_node_setup_cmd)
+    # ld.add_action(not_height_tf_transform_cmd)
+
     # ld.add_action(bringup_cmd)
     ld.add_action(bringup_cmd_group)
     # ld.add_action(nav2_setup_cmd)
-    ld.add_action(clear_nav2_costmap_cmd)
+    # ld.add_action(clear_nav2_costmap_cmd)
     ld.add_action(my_velocity_controller_setup_cmd)
     
     # ld.add_action(TF2ListenerExample_cmd)
