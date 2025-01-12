@@ -189,6 +189,21 @@ def generate_launch_description():
         condition=IfCondition(PythonExpression(['not ', slam]))  # 仅在 slam 为 False 时启动
     )
 
+    multi_static_tf_pub_c_cmd = Node(
+        package='move_to_gps_target_c',
+        executable='multi_static_tf_broadcaster',
+        name='multi_static_tf_broadcaster',
+        output='screen',
+        arguments=['--cpu', '0'],  # 传递一个自定义参数来指定CPU核心（核心1）
+        parameters=[
+            {
+                'use_sim_time': use_sim_time,
+                'transforms': static_transforms
+            }
+        ],
+        condition=IfCondition(PythonExpression(['not ', slam]))  # 仅在 slam 为 False 时启动
+    )
+
     # 手动广播静态的map->odom转换
     static_tf_pub_map_to_odom_cmd = Node(
         package='tf2_ros',
@@ -341,13 +356,22 @@ def generate_launch_description():
             package='move_to_gps_target',
             executable='apm_controller_node',
             output='screen',
-            arguments=['--cpu', '5'],  # 传递一个自定义参数来指定CPU核心（核心1）
+            arguments=['--cpu', '5'], 
         )
     
     apm_tf_node_setup_cmd=Node(
             package='move_to_gps_target',
             executable='apm_gps_tf_node',
             output='screen',
+            # arguments=['--cpu', '0'], 
+            # arguments=['time', '1.0']
+        )
+    
+    apm_tf_node_c_setup_cmd=Node(
+            package='move_to_gps_target_c',
+            executable='apm_gps_tf_node',
+            output='screen',
+            arguments=['--cpu', '0'], 
             # arguments=['time', '1.0']
         )
 
@@ -364,6 +388,14 @@ def generate_launch_description():
             name='not_height_tf_transform',
             output='screen',
             respawn=False,
+    )
+
+
+    system_info_publisher_cmd=Node(
+            package='move_to_gps_target',
+            executable='system_info_publisher',
+            name='system_info_publisher',
+            output='screen',
     )
 
 
@@ -388,12 +420,14 @@ def generate_launch_description():
     # Add any conditioned actions
 
     ld.add_action(apm_controller_node_setup_cmd)
-    ld.add_action(multi_static_tf_pub_cmd)
+    # ld.add_action(multi_static_tf_pub_cmd)
+    ld.add_action(multi_static_tf_pub_c_cmd)
     # ld.add_action(static_tf_pub_map_to_odom_cmd)
     # ld.add_action(static_tf_pub_scan_to_footprint_cmd)
     # ld.add_action(static_tf_pub_base_link_to_base_scan_cmd)
 
-    ld.add_action(apm_tf_node_setup_cmd)
+    # ld.add_action(apm_tf_node_setup_cmd)
+    ld.add_action(apm_tf_node_c_setup_cmd)
     # ld.add_action(not_height_tf_transform_cmd)
 
     # ld.add_action(bringup_cmd)
@@ -401,6 +435,8 @@ def generate_launch_description():
     # ld.add_action(nav2_setup_cmd)
     # ld.add_action(clear_nav2_costmap_cmd)
     ld.add_action(my_velocity_controller_setup_cmd)
+
+    ld.add_action(system_info_publisher_cmd)
     
     # ld.add_action(TF2ListenerExample_cmd)
     return ld

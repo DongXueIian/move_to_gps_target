@@ -39,6 +39,7 @@ setup(
             'my_velocity_controller=move_to_gps_target.my_velocity_controller:main',
             'apm_gps_tf_node=move_to_gps_target.apm_gps_tf_node:main',
             'static_tf_broadcaster=move_to_gps_target.static_tf_broadcaster:main',
+            'system_info_publisher=move_to_gps_target.system_info_publisher:main',
             'apm_controller_node=move_to_gps_target.apm_controller_node:main'
         ],
     },
