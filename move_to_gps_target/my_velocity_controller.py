@@ -11,7 +11,7 @@ from rclpy.executors import SingleThreadedExecutor
 range_degrees = 12
 isTwirlingCriticEnabled=False
 lastIsTwirlingCriticEnabled=False
-apmControllernNameSpace='/apm_drone'
+apmControllerNameSpace='/apm_drone'
 # class setNavParams(Node):
 #     def __init__(self):
 #         super().__init__('set_nav_params')
@@ -42,7 +42,7 @@ class CmdVelModifier(Node):
         )
         self.subscription_cuuent_cmd_vel = self.create_subscription(
             Twist,
-            apmControllernNameSpace+'/current_velocity',
+            apmControllerNameSpace+'/current_velocity',
             self.current_cmd_vel_callback,
             20
         )
@@ -53,7 +53,7 @@ class CmdVelModifier(Node):
             20
         )
 
-        self.publisher_ = self.create_publisher(Twist, apmControllernNameSpace+'/target_cmd_vel', 20)
+        self.publisher_ = self.create_publisher(Twist, apmControllerNameSpace+'/target_cmd_vel', 20)
         
         self.cmd_vel_data = Twist()
         self.laser_data = LaserScan()

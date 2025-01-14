@@ -4,7 +4,7 @@ bt_navigator:  # 行为树导航器的配置开始
     global_frame: map  # 全局参考框架ID
     robot_base_frame: base_link  # 机器人基础框架ID
     odom_topic: /odom  # 里程计话题
-    bt_loop_duration: 50  # 行为树循环的持续时间（以毫秒为单位）
+    bt_loop_duration: 1000  # 行为树循环的持续时间（以毫秒为单位）
     default_server_timeout: 4  # 默认的服务器超时时间（以秒为单位）
     default_nav_to_pose_bt_xml: $(find-pkg-share move_to_gps_target)/behavior_tree/my_nav_to_pose_bt.xml
     # default_nav_to_pose_bt_xml: $(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml
@@ -89,12 +89,12 @@ controller_server:
       vy_max: 1.0  # 最大侧向速度
       wz_max: 0.50  # 最大角速度
       iteration_count: 1  # 迭代次数
-      prune_distance: 1.0  # 修剪距离
+      prune_distance: 2.0  # 修剪距离
       transform_tolerance: 0.1  # 变换容差
       temperature: 0.3  # 温度参数
       gamma: 0.015  # Gamma值
       motion_model: "Omni"  # 运动模型为Differential Drive
-      visualize: false  # 是否可视化
+      visualize: True  # 是否可视化
       reset_period: 1.0  # 重置周期（仅在Humble中使用）
       regenerate_noises: false  # 是否重新生成噪声
       TrajectoryVisualizer:  # 轨迹可视化器配置
@@ -291,7 +291,7 @@ planner_server:  # 规划器服务器配置
     planner_plugins: ["GridBased"]  # 规划器插件列表（网格型）
     GridBased:  # 网格型规划器配置
       plugin: "nav2_navfn_planner/NavfnPlanner"  # 插件名称
-      tolerance: 0.5  # 容差
+      tolerance: 1.0  # 容差
       use_astar: false  # 使用A*算法（否）
       allow_unknown: true  # 允许未知区域
       cost_factor: 0.55

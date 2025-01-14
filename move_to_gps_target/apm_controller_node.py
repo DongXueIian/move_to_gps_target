@@ -11,14 +11,16 @@ import math
 from geometry_msgs.msg import PoseStamped
 from rosgraph_msgs.msg import Clock 
 from std_msgs.msg import Header
+from std_msgs.msg import Bool
 import psutil
 import os
 import argparse
+import threading
 
 # connectUrl='127.0.0.1:14550'
 connectUrl='10.10.10.20:14550'
 # connectUrl='/dev/ttyUSB1'
-apmControllernNameSpace='/apm_drone'
+apmControllerNameSpace='/apm_drone'
 
 hasClock=False
 simClock=None
@@ -51,6 +53,8 @@ class apmControllernNode(Node):
         self.vehicle = self.tryConnect(connectUrl)
         self.vehicle.mode = VehicleMode('GUIDED')
 
+        self.get_home_location_start=False
+
         self.gyro_x=0.0
         self.gyro_y=0.0
         self.gyro_z=0.0
@@ -65,17 +69,17 @@ class apmControllernNode(Node):
         # 订阅来自ROS的主题
         self.subscription_mode = self.create_subscription(
             String,
-            apmControllernNameSpace+'/target_mode',
+            apmControllerNameSpace+'/target_mode',
             self.mode_callback,
             10)
         self.subscription_velocity = self.create_subscription(
             Twist,
-            apmControllernNameSpace+'/target_cmd_vel',
+            apmControllerNameSpace+'/target_cmd_vel',
             self.velocity_callback,
             10)
         self.subscription_velocity = self.create_subscription(
             Twist,
-            apmControllernNameSpace+'/high_permission_target_cmd_vel',
+            apmControllerNameSpace+'/high_permission_target_cmd_vel',
             self.high_permission_velocity_callback,
             10)
         if hasClock:
@@ -87,35 +91,40 @@ class apmControllernNode(Node):
         # 发布到ROS的主题
         self.publisher_current_velocity = self.create_publisher(
             Twist,
-            apmControllernNameSpace+'/current_velocity',
+            apmControllerNameSpace+'/current_velocity',
             10)
         self.publisher_current_mode_state = self.create_publisher(
             String,
-            apmControllernNameSpace+'/current_mode_state',
+            apmControllerNameSpace+'/current_mode_state',
             10)
         self.publisher_current_mode = self.create_publisher(
             String,
-            apmControllernNameSpace+'/current_mode',
+            apmControllerNameSpace+'/current_mode',
             10)
         self.publisher_current_attitude = self.create_publisher(
             String,
-            apmControllernNameSpace+'/current_attitude',
+            apmControllerNameSpace+'/current_attitude',
             10)
         self.publisher_gps = self.create_publisher(
             NavSatFix,
-            apmControllernNameSpace+'/current_GPS',
+            apmControllerNameSpace+'/current_GPS',
             10)
         self.publisher_battery = self.create_publisher(
             BatteryState,
-            apmControllernNameSpace+'/current_battery',
+            apmControllerNameSpace+'/current_battery',
             10)
         self.publisher_local_location = self.create_publisher(
             PoseStamped, 
-            apmControllernNameSpace+'/current_local_location',
+            apmControllerNameSpace+'/current_local_location',
+            10)
+        self.publisher_home_location = self.create_publisher(
+            NavSatFix,
+            apmControllerNameSpace+'/home_gps_location',
             10)
         # 定时发布无人机状态
         self.update_state_10hz_timer = self.create_timer(0.1, self.update_state_10hz)
         self.update_state_5hz_timer = self.create_timer(0.2, self.update_state_5hz)
+        self.update_state_1hz_timer = self.create_timer(1.0, self.update_state_1hz)
         # 循环动作
         self.loop_action_10hz_timer= self.create_timer(0.1, self.loop_action_10hz)
 
@@ -225,6 +234,40 @@ class apmControllernNode(Node):
         if self.control_mode=='GUIDED' and self.vehicle.armed:
             self.set_velocity_body(msg.linear.x, msg.linear.y, msg.linear.z,msg.angular.z)
             self.high_permission_velocity_call=True
+
+    def get_home_location(self):
+        self.set_velocity_body(0, 0, 0,0)
+        # 请求 home_location 信息
+        cmds = self.vehicle.commands
+        cmds.download()
+        cmds.wait_ready()
+        while self.vehicle.home_location==None:
+            self.get_logger().info('Waiting for home location...')
+            self.set_velocity_body(0, 0, 0,0)
+            time.sleep(1)
+        
+        self.get_logger().info(f"Home location acquired: lat={self.vehicle.home_location.lat}, lon={self.vehicle.home_location.lon}, alt={self.vehicle.home_location.alt}")
+
+
+    def update_state_1hz(self):
+        #vehicle.home_location在上电,起飞的时候会更新
+        if self.vehicle.home_location:
+
+            msg = NavSatFix()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = 'world'
+            msg.latitude = self.vehicle.home_location.lat
+            msg.longitude = self.vehicle.home_location.lon
+            msg.altitude = self.vehicle.home_location.alt
+            self.publisher_home_location.publish(msg)
+            # self.get_logger().info(f"Published home location: lat={self.vehicle.home_location.lat}, lon={self.vehicle.home_location.lon}, alt={self.vehicle.home_location.alt}")
+
+        # 主动获取起飞点坐标
+        elif not self.get_home_location_start and self.vehicle!=None and self.vehicle.armed:
+            self.get_home_location_thread = threading.Thread(target=self.get_home_location)
+            self.get_home_location_thread.start()
+            self.get_home_location_start=True
+
 
     def update_state_5hz(self):
 

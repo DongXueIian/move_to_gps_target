@@ -4,7 +4,7 @@ from geometry_msgs.msg import Twist
 from pynput.keyboard import Key, Listener
 from std_msgs.msg import String
 
-apmControllernNameSpace = '/apm_drone'
+apmControllerNameSpace = '/apm_drone'
 
 MAX_LINEAR = 10
 MAX_ANG_VEL = 3.1415
@@ -46,18 +46,18 @@ CTRL-C 退出（只有在降落之后才能退出）
 class KeyboardController(Node):
     def __init__(self):
         super().__init__('keyboard_velocity_controller')
-        global apmControllernNameSpace
+        global apmControllerNameSpace
         self.drone_mode=''
-        self.publisher_cmd_vel = self.create_publisher(Twist,apmControllernNameSpace + '/high_permission_target_cmd_vel', 10)
-        self.publisher_mode = self.create_publisher(String,apmControllernNameSpace + '/target_mode', 10)
+        self.publisher_cmd_vel = self.create_publisher(Twist,apmControllerNameSpace + '/high_permission_target_cmd_vel', 10)
+        self.publisher_mode = self.create_publisher(String,apmControllerNameSpace + '/target_mode', 10)
         self.subscription_current_velocity = self.create_subscription(
             Twist, 
-            apmControllernNameSpace + '/current_velocity',
+            apmControllerNameSpace + '/current_velocity',
             self.current_velocity_callback,
             10)
         self.subscription_mode = self.create_subscription(
             String,
-            apmControllernNameSpace+'/current_mode',
+            apmControllerNameSpace+'/current_mode',
             self.mode_callback,
             10)
         self.print_msg_10hz_timer=self.create_timer(0.1, self.print_msg_10hz)

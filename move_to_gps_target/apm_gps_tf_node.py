@@ -14,7 +14,7 @@ import os
 import argparse
 
 
-apmControllernNameSpace='/apm_drone'
+apmControllerNameSpace='/apm_drone'
 
 cpu_core_msg=''
 cpu_core_error_msg=''
@@ -48,24 +48,24 @@ class TFConverterNode(Node):
                 10)
         self.subscription_local = self.create_subscription(
             PoseStamped,
-            apmControllernNameSpace+'/current_local_location',
+            apmControllerNameSpace+'/current_local_location',
             self.local_location_callback,
             10)
         self.subscription_attitude = self.create_subscription(
             String,
-            apmControllernNameSpace+'/current_attitude',
+            apmControllerNameSpace+'/current_attitude',
             self.attitude_callback,
             10)
 
         self.subscription_target_gps = self.create_subscription(
             NavSatFix,
-            apmControllernNameSpace+'/target_gps_location',
+            apmControllerNameSpace+'/target_gps_location',
             self.target_gps_callback,
             10
         )
         self.subscription_target_gps = self.create_subscription(
             NavSatFix,
-            apmControllernNameSpace+'/home_gps_location',
+            apmControllerNameSpace+'/home_gps_location',
             self.home_gps_callback,
             10
         )
