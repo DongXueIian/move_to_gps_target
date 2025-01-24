@@ -170,6 +170,7 @@ def generate_launch_description():
     static_transforms = [
         "0 0 0 0 0 0 map odom",
         "0 0 0 0 0 0 base_scan base_footprint",
+        "0.08 0 -0.06 0 1.5708 0 base_link camera_link",
         "0 0 0 0 0 0 base_link base_scan"
     ]
 
@@ -398,6 +399,13 @@ def generate_launch_description():
             output='screen',
     )
 
+    move_to_gps_target_c_setup_cmd=Node(
+            package='move_to_gps_target_c',
+            executable='move_to_gps_target',
+            output='screen',
+            # arguments=['--cpu', '0'], 
+            # arguments=['time', '1.0']
+        )
 
     # Create the launch description and populate
     ld = LaunchDescription()
@@ -437,6 +445,7 @@ def generate_launch_description():
     ld.add_action(my_velocity_controller_setup_cmd)
 
     ld.add_action(system_info_publisher_cmd)
+    ld.add_action(move_to_gps_target_c_setup_cmd)
     
     # ld.add_action(TF2ListenerExample_cmd)
     return ld

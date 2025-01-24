@@ -7,145 +7,188 @@ import sys
 import yaml
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 from geometry_msgs.msg import TransformStamped
-import tf_transformations  # 用于将旋转矩阵转换为四元数
+from sensor_msgs.msg import Image
+import tf_transformations
 import tf2_ros
+from cv_bridge import CvBridge
+import time
 
-# ROS2节点类
 class AprilTagTFPublisher(Node):
     def __init__(self):
-        super().__init__('apriltag_tf_publisher')
-        self.br = tf2_ros.TransformBroadcaster(self)
-    
-    def send_transform(self, translation, quaternion, tag_id):
-        t = TransformStamped()
+        # 在节点初始化时直接设置参数
+        super().__init__('apriltag_tf_publisher',
+                        parameter_overrides=[
+                            rclpy.Parameter('use_sim_time', value=False)
+                        ])
         
+        # 初始化TF广播器和CV桥接
+        self.br = tf2_ros.TransformBroadcaster(self)
+        self.bridge = CvBridge()
+        
+        # 线程同步变量
+        self.frame_condition = threading.Condition()
+        self.latest_frame = None
+        self.running = True
+        
+        # 检测仿真模式的代码需要调整
+        time.sleep(1)
+        simulation = self.count_publishers('/clock') > 0
+        
+        # 使用正确的方式更新参数
+        self.set_parameters([
+            rclpy.Parameter('use_sim_time', value=simulation)
+        ])
+        self.get_logger().info(f"Operating in {'simulation' if simulation else 'real'} mode")
+
+        if simulation:
+            # 仿真模式：订阅图像话题
+            self.subscription = self.create_subscription(
+                Image,
+                '/camera',
+                self.image_callback,
+                QoSProfile(
+                    reliability=QoSReliabilityPolicy.BEST_EFFORT,
+                    durability=QoSDurabilityPolicy.VOLATILE,
+                    depth=1
+                )
+            )
+        else:
+            # 真实模式：初始化摄像头
+            self.cap = cv2.VideoCapture(0)
+            if not self.cap.isOpened():
+                self.get_logger().error("Could not open video device")
+                sys.exit(1)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.capture_thread = threading.Thread(target=self.capture_frames)
+            self.capture_thread.start()
+
+        # 启动检测线程
+        self.detection_thread = threading.Thread(target=self.detection_loop)
+        self.detection_thread.start()
+
+    def image_callback(self, msg):
+        """处理仿真图像的回调函数"""
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            with self.frame_condition:
+                self.latest_frame = cv_image
+                self.frame_condition.notify_all()
+        except Exception as e:
+            self.get_logger().error(f"图像转换失败: {str(e)}")
+
+    def capture_frames(self):
+        """真实模式下的摄像头捕获循环"""
+        while self.running:
+            ret, frame = self.cap.read()
+            if not ret:
+                self.get_logger().error("视频帧捕获失败")
+                break
+            with self.frame_condition:
+                self.latest_frame = frame
+                self.frame_condition.notify_all()
+
+    def detection_loop(self):
+        """持续运行的检测循环"""
+        detector = apriltag.Detector()
+        tag_size = 2.0
+        camera_matrix, _ = read_camera_parameters()
+
+        while self.running:
+            with self.frame_condition:
+                self.frame_condition.wait_for(lambda: self.latest_frame is not None or not self.running)
+                if not self.running:
+                    break
+                frame = self.latest_frame.copy()
+
+            # AprilTag检测处理
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            results = detector.detect(gray)
+            
+            for r in results:
+                try:
+                    # 位姿估计
+                    pose, _, _ = detector.detection_pose(
+                        r,
+                        camera_params=(
+                            camera_matrix[0,0],
+                            camera_matrix[1,1],
+                            camera_matrix[0,2],
+                            camera_matrix[1,2]
+                        ),
+                        tag_size=tag_size
+                    )
+                    
+                    # 坐标变换处理
+                    translation = pose[:3, 3]
+                    translation[0], translation[1],translation[2] = -translation[1], -translation[0],-translation[2]
+                    
+                    # quaternion = tf_transformations.quaternion_from_matrix(pose)
+                    self.send_transform(translation, r.tag_id)
+                except Exception as e:
+                    self.get_logger().error(f"位姿估计失败: {str(e)}")
+
+    def send_transform(self, translation, tag_id):
+        print("发布TF变换")
+        t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = 'base_link'
         t.child_frame_id = f'tag_{tag_id}'
-
+        
         t.transform.translation.x = float(translation[0])
         t.transform.translation.y = float(translation[1])
         t.transform.translation.z = float(translation[2])
-
-        t.transform.rotation.x = float(quaternion[0])
-        t.transform.rotation.y = float(quaternion[1])
-        t.transform.rotation.z = float(quaternion[2])
-        t.transform.rotation.w = float(quaternion[3])
-
+        
+        t.transform.rotation.x = 0.0
+        t.transform.rotation.y = 0.0
+        t.transform.rotation.z = 0.0
+        t.transform.rotation.w = 1.0
+        
         self.br.sendTransform(t)
 
-# 读取ost.yaml文件
+    def destroy_node(self):
+        """资源清理"""
+        self.running = False
+        with self.frame_condition:
+            self.frame_condition.notify_all()
+        
+        if hasattr(self, 'cap'):
+            self.cap.release()
+        if hasattr(self, 'capture_thread'):
+            self.capture_thread.join()
+        super().destroy_node()
+
 def read_camera_parameters(file_path='ost.yaml'):
+    """读取相机标定参数"""
     with open(file_path) as file:
         data = yaml.safe_load(file)
     
-    camera_matrix_data = data['camera_matrix']['data']
-    camera_matrix = np.array(camera_matrix_data).reshape((3, 3))
+    return (
+        np.array(data['camera_matrix']['data']).reshape(3,3),
+        np.array(data['distortion_coefficients']['data'])
+    )
 
-    dist_coeffs_data = data['distortion_coefficients']['data']
-    dist_coeffs = np.array(dist_coeffs_data)
-
-    return camera_matrix, dist_coeffs
-
-# 获取摄像头参数
-camera_matrix, dist_coeffs = read_camera_parameters()
-
-# 初始化摄像头
-device_id = 0
-cap = cv2.VideoCapture(device_id)
-
-# 检查摄像头是否打开
-if not cap.isOpened():
-    print("Error: Could not open video device.")
-    sys.exit()
-
-# 设置摄像头分辨率
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
-# 初始化AprilTag检测器
-detector = apriltag.Detector()
-
-# 用于线程同步的条件变量
-frame_condition = threading.Condition()
-latest_frame = None
-
-# 标签大小（以米为单位）
-tag_size = 0.1545  # 30厘米
-
-def capture_frames():
-    global latest_frame
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # 使用条件变量更新最新的帧
-        with frame_condition:
-            latest_frame = frame.copy()
-            frame_condition.notify()
-
-def detect_and_publish():
-    rclpy.init(args=None)
+def main():
+    rclpy.init()
     node = AprilTagTFPublisher()
+    
+    def shutdown(sig, frame):
+        node.get_logger().info("收到关闭信号，正在终止...")
+        node.destroy_node()
+        rclpy.shutdown()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, shutdown)
+    
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
-    while True:
-        with frame_condition:
-            frame_condition.wait()
-            frame = latest_frame.copy()
-        
-        # 转换为灰度图
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        # 进行AprilTag检测
-        results = detector.detect(gray)
-        
-        for r in results:
-            # 位姿估计
-            pose, e0, e1 = detector.detection_pose(
-                r, 
-                camera_params=(
-                    camera_matrix[0, 0], 
-                    camera_matrix[1, 1], 
-                    camera_matrix[0, 2], 
-                    camera_matrix[1, 2]
-                ), 
-                tag_size=tag_size
-            )
-
-            translation = pose[:3, 3]
-            t=translation[0]
-            translation[0] = translation[1]  # 对y轴取反
-            translation[1]=t
-            translation[2] = -translation[2]  # 对z轴取反
-
-            # 转换为四元数
-            quaternion = tf_transformations.quaternion_from_matrix(pose)
-
-            # 发送ROS2变换
-            node.send_transform(translation, quaternion, r.tag_id)
-
-    rclpy.shutdown()
-
-def signal_handler(sig, frame):
-    print("Ctrl+C detected. Exiting gracefully...")
-    cap.release()
-    sys.exit(0)
-
-# 捕获Ctrl+C信号
-signal.signal(signal.SIGINT, signal_handler)
-
-# 创建和启动线程
-capture_thread = threading.Thread(target=capture_frames)
-publish_thread = threading.Thread(target=detect_and_publish)
-
-capture_thread.start()
-publish_thread.start()
-
-# 等待线程结束
-capture_thread.join()
-publish_thread.join()
-
-# 释放摄像头
-cap.release()
+if __name__ == '__main__':
+    main()
