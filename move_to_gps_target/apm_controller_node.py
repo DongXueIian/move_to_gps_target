@@ -28,7 +28,7 @@ simClock=None
 cpu_core_msg=''
 cpu_core_error_msg=''
 
-TAKE_OFF_ALTITUDE=40.0
+TAKE_OFF_ALTITUDE=21.0
 
 class apmControllernNode(Node):
     def __init__(self):

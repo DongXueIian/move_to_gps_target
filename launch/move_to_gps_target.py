@@ -372,7 +372,7 @@ def generate_launch_description():
             package='move_to_gps_target_c',
             executable='apm_gps_tf_node',
             output='screen',
-            arguments=['--cpu', '0'], 
+            arguments=['--cpu', '1'], 
             # arguments=['time', '1.0']
         )
 
@@ -403,9 +403,17 @@ def generate_launch_description():
             package='move_to_gps_target_c',
             executable='move_to_gps_target',
             output='screen',
-            # arguments=['--cpu', '0'], 
+            arguments=['--cpu', '2'], 
             # arguments=['time', '1.0']
-        )
+    )
+
+    apriltag_tf_publisher_node_c_setup_cmd=Node(
+            package='move_to_gps_target_c',
+            executable='apriltag_tf_publisher_node',
+            output='screen',
+            arguments=['--cpu', '3'], 
+            # arguments=['time', '1.0']
+    )
 
     # Create the launch description and populate
     ld = LaunchDescription()
@@ -446,6 +454,7 @@ def generate_launch_description():
 
     ld.add_action(system_info_publisher_cmd)
     ld.add_action(move_to_gps_target_c_setup_cmd)
+    ld.add_action(apriltag_tf_publisher_node_c_setup_cmd)
     
     # ld.add_action(TF2ListenerExample_cmd)
     return ld

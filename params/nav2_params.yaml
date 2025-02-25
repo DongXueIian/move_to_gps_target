@@ -79,17 +79,17 @@ controller_server:
     FollowPath:  # FollowPath插件配置
       plugin: "nav2_mppi_controller::MPPIController"  # 使用MPPIController插件
       time_steps: 30  # 时间步数
-      model_dt: 0.04  # 模型时间步长
+      model_dt: 0.05  # 模型时间步长
       batch_size: 2000  # 批处理大小
-      vx_std: 0.30  # 前向速度标准差
+      vx_std: 0.35  # 前向速度标准差
       vy_std: 0.15  # 侧向速度标准差
       wz_std: 0.20  # 角速度标准差
-      vx_max: 1.0  # 最大前向速度
+      vx_max: 3.0  # 最大前向速度
       vx_min: -0.4  # 最小前向速度
       vy_max: 0.6  # 最大侧向速度
       wz_max: 0.50  # 最大角速度
       iteration_count: 1  # 迭代次数
-      prune_distance: 2.0  # 修剪距离
+      prune_distance: 4.0  # 修剪距离
       transform_tolerance: 0.3  # 变换容差
       temperature: 0.3  # 温度参数
       gamma: 0.015  # Gamma值
@@ -194,24 +194,24 @@ local_costmap:  # 局部代价地图的配置开始
       robot_base_frame: base_link  # 机器人基础框架
       use_sim_time: True  # 使用仿真时间（对于仿真环境）
       rolling_window: true  # 是否使用滚动窗口，对于局部代价地图通常设置为true
-      width: 6  # 代价地图宽度，单位为米
-      height: 6  # 代价地图高度，单位为米
+      width: 10  # 代价地图宽度，单位为米
+      height: 10  # 代价地图高度，单位为米
 
       resolution: 0.2  # 代价地图分辨率，单位为米/像素
 
       robot_radius: 0.5 # 机器人半径，用于计算碰撞
-      plugins: ["voxel_layer", "inflation_layer"]  # 使用的插件列表
+      plugins: ["obstacle_layer", "inflation_layer"]  # 使用的插件列表
       inflation_layer:  # 膨胀层配置
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 4.0   # 成本缩放因子
         inflation_radius: 1.0  # 膨胀半径，单位为米
-      voxel_layer:  # 体素层配置
-        plugin: "nav2_costmap_2d::VoxelLayer"
+      obstacle_layer:  # 体素层配置
+        plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True  # 是否启用
-        publish_voxel_map: True  # 是否发布体素地图
-        origin_z: 0.0  # Z轴原点位置
-        z_resolution: 0.3  # Z轴分辨率
-        z_voxels: 16  # Z轴上的体素数
+        # publish_voxel_map: True  # 是否发布体素地图
+        # origin_z: 0.0  # Z轴原点位置
+        # z_resolution: 0.3  # Z轴分辨率
+        # z_voxels: 16  # Z轴上的体素数
         max_obstacle_height: 99999.0  # 最大障碍物高度
         mark_threshold: 0  # 标记阈值
         observation_sources: scan  # 观测源
