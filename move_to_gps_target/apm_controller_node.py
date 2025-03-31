@@ -126,7 +126,7 @@ class apmControllernNode(Node):
         self.update_state_5hz_timer = self.create_timer(0.2, self.update_state_5hz)
         self.update_state_1hz_timer = self.create_timer(1.0, self.update_state_1hz)
         # 循环动作
-        self.loop_action_10hz_timer= self.create_timer(0.1, self.loop_action_10hz)
+        # self.loop_action_10hz_timer= self.create_timer(0.1, self.loop_action_10hz)
 
         # if hasClock:
         #     self.setup_time=simClock.now()
@@ -250,6 +250,16 @@ class apmControllernNode(Node):
 
 
     def update_state_1hz(self):
+
+        # 发布无人机的当前飞行模式
+        mode_msg = String(data=str(self.control_mode))
+        self.publisher_current_mode.publish(mode_msg)
+
+        # 发布无人机的当前状态
+        mode_state_msg = String(data="armed" if self.vehicle.armed else "disarmed")
+        self.publisher_current_mode_state.publish(mode_state_msg)
+
+        
         #vehicle.home_location在上电,起飞的时候会更新
         if self.vehicle.home_location:
 
@@ -271,13 +281,7 @@ class apmControllernNode(Node):
 
     def update_state_5hz(self):
 
-        # 发布无人机的当前飞行模式
-        mode_msg = String(data=str(self.control_mode))
-        self.publisher_current_mode.publish(mode_msg)
 
-        # 发布无人机的当前状态
-        mode_state_msg = String(data="armed" if self.vehicle.armed else "disarmed")
-        self.publisher_current_mode_state.publish(mode_state_msg)
 
         # 发布无人机的当前姿态（Roll, Pitch, Yaw）
         attitude_msg = String(data=f"Roll: {self.vehicle.attitude.roll}, Pitch: {self.vehicle.attitude.pitch}, Yaw: {self.vehicle.attitude.yaw}")
@@ -314,14 +318,15 @@ class apmControllernNode(Node):
         self.publisher_local_location.publish(local_location_msg)
         # self.get_logger().info('发布本地位置信息：%s' % local_location_msg.pose.position)
 
-    def loop_action_10hz(self):
+    # def loop_action_10hz(self):
         # print("Local Location: %s" % self.vehicle.location.local_frame)
         # self.last_call_loop_action_10hz = self.monitor_loop_time(self.last_call_loop_action_10hz, 0.1)
+
+
+    def update_state_10hz(self):
         self.action_count=self.action_count+1
         if self.high_permission_velocity_call and self.action_count % 10 == 0:
             self.high_permission_velocity_call=False
-
-    def update_state_10hz(self):
         # 发布无人机的当前速度
         # 使用当前的偏航角来旋转速度向量
         # 假设获取速度和姿态

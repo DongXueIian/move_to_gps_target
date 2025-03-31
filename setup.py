@@ -19,6 +19,7 @@ setup(
         ('share/' + package_name+'/rviz2', ['rviz2/test_nav2_apm.rviz']),
         ('share/' + package_name+'/rviz2', ['rviz2/test_nav2_apm_mppi.rviz']),
         ('share/' + package_name+'/behavior_tree', ['behavior_tree/my_nav_to_pose_bt.xml']),
+        ('share/' + package_name+'/rknnModel', ['rknnModel/fire.rknn']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -40,7 +41,8 @@ setup(
             'apm_gps_tf_node=move_to_gps_target.apm_gps_tf_node:main',
             'static_tf_broadcaster=move_to_gps_target.static_tf_broadcaster:main',
             'system_info_publisher=move_to_gps_target.system_info_publisher:main',
-            'apm_controller_node=move_to_gps_target.apm_controller_node:main'
+            'apm_controller_node=move_to_gps_target.apm_controller_node:main',
+            'fire_detection_node=move_to_gps_target.fire_detection_node:main'
         ],
     },
 )

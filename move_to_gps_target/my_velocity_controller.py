@@ -57,11 +57,11 @@ class CmdVelModifier(Node):
         
         self.cmd_vel_data = Twist()
         self.laser_data = LaserScan()
-        self.timer = self.create_timer(1/20, self.timer_callback)
+        self.timer = self.create_timer(0.2, self.timer_callback)
 
         self.set_params = self.create_client(SetParameters, "/controller_server/set_parameters")
         self.set_params.wait_for_service(1)
-        # self.create_timer(0.1, self.get_params)
+        self.create_timer(0.2, self.get_params)
 
     def get_params(self):
         global isTwirlingCriticEnabled,lastIsTwirlingCriticEnabled
@@ -108,8 +108,8 @@ class CmdVelModifier(Node):
                 if self.current_cmd_vel_data.linear.x>1.5:
                     isTwirlingCriticEnabled=True
                     range_degrees=5
-                else:
-                    rclpy.parameter.Parameter('/controller_server/FollowPath.TwirlingCritic.enabled', rclpy.Parameter.Type.BOOL, False) 
+                if self.current_cmd_vel_data.linear.x<1.0:
+                    # rclpy.parameter.Parameter('/controller_server/FollowPath.TwirlingCritic.enabled', rclpy.Parameter.Type.BOOL, False) 
                     isTwirlingCriticEnabled=False
                     range_degrees=12
                 # 根据距离设置速度限制

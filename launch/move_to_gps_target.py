@@ -360,6 +360,13 @@ def generate_launch_description():
             arguments=['--cpu', '5'], 
         )
     
+    fire_detection_node_setup_cmd=Node(
+            package='move_to_gps_target',
+            executable='fire_detection_node',
+            output='screen',
+            arguments=['--cpu', '2'], 
+        )
+    
     apm_tf_node_setup_cmd=Node(
             package='move_to_gps_target',
             executable='apm_gps_tf_node',
@@ -372,7 +379,7 @@ def generate_launch_description():
             package='move_to_gps_target_c',
             executable='apm_gps_tf_node',
             output='screen',
-            arguments=['--cpu', '1'], 
+            arguments=['--cpu', '0'], 
             # arguments=['time', '1.0']
         )
 
@@ -403,7 +410,7 @@ def generate_launch_description():
             package='move_to_gps_target_c',
             executable='move_to_gps_target',
             output='screen',
-            arguments=['--cpu', '2'], 
+            arguments=['--cpu', '1'], 
             # arguments=['time', '1.0']
     )
 
@@ -411,7 +418,7 @@ def generate_launch_description():
             package='move_to_gps_target_c',
             executable='apriltag_tf_publisher_node',
             output='screen',
-            arguments=['--cpu', '3'], 
+            arguments=['--cpu', '1'], 
             # arguments=['time', '1.0']
     )
 
@@ -436,6 +443,7 @@ def generate_launch_description():
     # Add any conditioned actions
 
     ld.add_action(apm_controller_node_setup_cmd)
+    ld.add_action(fire_detection_node_setup_cmd)
     # ld.add_action(multi_static_tf_pub_cmd)
     ld.add_action(multi_static_tf_pub_c_cmd)
     # ld.add_action(static_tf_pub_map_to_odom_cmd)
